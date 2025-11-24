@@ -1,0 +1,43 @@
+﻿@model mwowp.Web.Models.WorkOrder
+
+<h2>Assign Work Order</h2>
+
+<form asp-action="Assign" method="post">
+    <input type="hidden" asp-for="Id" />
+    
+    <div class="form-group">
+        <label>Asset</label>
+        <input class="form-control" value="@Model.Asset.Name" disabled />
+    </div>
+
+    <div class="form-group">
+        <label>Title</label>
+        <input class="form-control" value="@Model.Title" disabled />
+    </div>
+
+    <div class="form-group">
+        <label>Assign to Technician</label>
+        <select name="assignedToUserId" class="form-control">
+            @foreach(var tech in ViewBag.Technicians)
+            {
+                <option value="@tech.Id" selected="@(tech.Id == Model.AssignedToUserId ? "selected" : null)">
+                    @tech.FullName
+                </option>
+            }
+        </select>
+    </div>
+
+    <div class="form-group">
+        <label>Status</label>
+        <select name="status" class="form-control">
+            @foreach(var st in Enum.GetValues(typeof(mwowp.Web.Models.WorkOrderStatus)))
+            {
+                <option value="@st" selected="@(st.Equals(Model.Status) ? "selected" : null)">
+                    @st
+                </option>
+            }
+        </select>
+    </div>
+
+    <button type="submit" class="btn btn-primary">Save</button>
+</form>

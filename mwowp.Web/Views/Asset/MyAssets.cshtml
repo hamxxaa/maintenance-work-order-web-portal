@@ -1,0 +1,31 @@
+﻿@model IEnumerable<mwowp.Web.Models.Asset>
+
+<h2>My Assets</h2>
+
+<a asp-action="Create" class="btn btn-success mb-2">Add New Asset</a>
+
+<table class="table">
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Brand</th>
+            <th>Model</th>
+            <th>Serial Number</th>
+            <th>Status</th>
+            <th>Created At</th>
+        </tr>
+    </thead>
+    <tbody>
+        @foreach (var asset in Model)
+        {
+            <tr>
+                <td>@asset.Name</td>
+                <td>@asset.Brand</td>
+                <td>@asset.Model</td>
+                <td>@asset.SerialNumber</td>
+                <td>@asset.Status</td>
+                <td>@asset.CreatedAt.ToShortDateString()</td>
+            </tr>
+        }
+    </tbody>
+</table>
