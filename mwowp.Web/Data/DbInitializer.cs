@@ -50,6 +50,20 @@ namespace mwowp.Web.Data
                 await userManager.AddToRoleAsync(user, "User");
             }
 
+            var user2Email = "use2r@test.com";
+            var user2 = await userManager.FindByEmailAsync(user2Email);
+            if (user2 == null)
+            {
+                user2 = new ApplicationUser
+                {
+                    UserName = user2Email,
+                    Email = user2Email,
+                    FullName = "Test User2"
+                };
+                await userManager.CreateAsync(user2, "Password123!");
+                await userManager.AddToRoleAsync(user2, "User");
+            }
+
             // Test Technician
             var techEmail = "tech@test.com";
             var tech = await userManager.FindByEmailAsync(techEmail);

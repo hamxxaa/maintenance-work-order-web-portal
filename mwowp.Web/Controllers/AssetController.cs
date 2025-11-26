@@ -1,8 +1,9 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using mwowp.Web.Data;
 using mwowp.Web.Models;
-using Microsoft.AspNetCore.Identity;
 
 namespace mwowp.Web.Controllers
 {
@@ -42,12 +43,13 @@ namespace mwowp.Web.Controllers
             ModelState.Remove("OwnerUser");
             ModelState.Remove("Status"); // Status de formdan gelmediği için hata verebilir
             ModelState.Remove("CreatedAt");
-            ModelState.Remove("WorkOrders");
 
             if (ModelState.IsValid)
             {
                 var user = await _userManager.GetUserAsync(User);
                 asset.OwnerUserId = user.Id;
+                asset.OwnerUser = user;
+               
                 asset.Status = AssetStatus.OnRepair; // veya default status
                 asset.CreatedAt = DateTime.UtcNow;
 

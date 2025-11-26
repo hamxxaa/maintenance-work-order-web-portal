@@ -1,0 +1,69 @@
+﻿@using mwowp.Web.Models
+@model mwowp.Web.Models.WorkOrder
+
+<h2>İş Emri Düzenle</h2>
+
+<form asp-controller="WorkOrder" asp-action="EditOrder" method="post">
+    @Html.AntiForgeryToken()
+    <input type="hidden" asp-for="Id" />
+
+    <div class="mb-3">
+        <label class="form-label">Asset</label>
+        <input class="form-control" value="@Model.Asset?.Name" disabled />
+    </div>
+
+    <div class="mb-3">
+        <label asp-for="Title" class="form-label"></label>
+        <input asp-for="Title" class="form-control" disabled />
+    </div>
+
+    <div class="mb-3">
+        <label asp-for="Description" class="form-label"></label>
+        <textarea asp-for="Description" class="form-control" rows="4" disabled></textarea>
+    </div>
+
+    <div class="mb-3">
+        <label asp-for="Priority" class="form-label"></label>
+        <select asp-for="Priority" class="form-select">
+            <option value="Low">Düşük</option>
+            <option value="Medium">Orta</option>
+            <option value="High">Yüksek</option>
+            <option value="Critical">Kritik</option>
+        </select>
+        <span asp-validation-for="Priority" class="text-danger"></span>
+    </div>
+
+    <div class="mb-3">
+        <label class="form-label">Durum</label>
+        <input class="form-control" value="@Model.Status" disabled />
+    </div>
+
+    <div class="mb-3">
+        <label class="form-label">Oluşturan</label>
+        <input class="form-control" value="@Model.CreatedByUser?.FullName" disabled />
+    </div>
+
+    <div class="mb-3">
+        <label asp-for="AssignedToUserId" class="form-label">Atanan Kişi</label>
+        <select asp-for="AssignedToUserId" class="form-select">
+            <option value="">(Seçilmedi)</option>
+            @if (ViewBag.Assignees is IEnumerable<ApplicationUser> users)
+            {
+                foreach (var u in users)
+                {
+                    <option value="@u.Id" selected="@(Model.AssignedToUserId == u.Id ? "selected" : null)">@u.FullName</option>
+                }
+            }
+        </select>
+        <span asp-validation-for="AssignedToUserId" class="text-danger"></span>
+    </div>
+
+    <div class="d-flex gap-2">
+        <button type="submit" class="btn btn-primary">Kaydet</button>
+        <a asp-controller="WorkOrder" asp-action="Index" class="btn btn-secondary">İptal</a>
+    </div>
+</form>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

@@ -23,6 +23,29 @@
                 <td>@wo.Priority</td>
                 <td>@wo.AssignedToUser?.FullName</td>
                 <td>@wo.CreatedByUser?.FullName</td>
+                <td>
+                    <a asp-controller="WorkOrder"
+                       asp-action="EditOrder"
+                       asp-route-id="@wo.Id"
+                       class="btn btn-sm btn-primary"
+                       target="_blank"
+                       rel="noopener">
+                       Edit
+                    </a>
+                    @if (wo.Status == WorkOrderStatus.Completed)
+                    {
+                        <a asp-controller="WorkOrder"
+                        asp-action="Inspection"
+                        asp-route-id="@wo.Id"
+                        class="btn btn-sm btn-warning"
+                        target="_blank"
+                        rel="noopener">
+                            Inspection
+                        </a>                
+                    }
+                </td>
+
+
             </tr>
         }
     </tbody>

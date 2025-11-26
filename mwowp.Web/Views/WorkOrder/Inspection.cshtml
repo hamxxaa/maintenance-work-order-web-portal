@@ -1,0 +1,42 @@
+﻿@model mwowp.Web.Models.WorkOrder
+@{
+
+<h2>İş Emri İncelemesi</h2>
+
+<div class="card mb-3">
+    <div class="card-body">
+        <h5 class="card-title">@Model.Title</h5>
+        <p class="card-text">@Model.Description</p>
+        <p class="card-text">
+            <strong>Varlık:</strong> @Model.Asset?.Name
+        </p>
+    </div>
+</div>
+
+<form asp-action="Inspection" asp-route-id="@Model.Id" method="post">
+    @Html.AntiForgeryToken()
+    <div asp-validation-summary="ModelOnly" class="text-danger"></div>
+
+    <div class="mb-3">
+        <label class="form-label">Puan (1-5)</label>
+        <div>
+            @for (var i = 1; i <= 5; i++)
+            {
+                <div class="form-check form-check-inline">
+                    <input class="form-check-input" type="radio" name="rating" id="rating-@i" value="@i" required />
+                    <label class="form-check-label" for="rating-@i">@i</label>
+                </div>
+            }
+        </div>
+        <span class="text-danger" data-valmsg-for="rating" data-valmsg-replace="true"></span>
+    </div>
+
+    <div class="mb-3">
+        <label for="comments" class="form-label">Yorum</label>
+        <textarea id="comments" name="comments" class="form-control" rows="4" maxlength="1000" placeholder="Yapılan iş ve kalite hakkında görüşünüz..."></textarea>
+    </div>
+
+    <button type="submit" class="btn btn-primary">Kaydet</button>
+    <a asp-action="Index" class="btn btn-secondary">İptal</a>
+</form>
+}

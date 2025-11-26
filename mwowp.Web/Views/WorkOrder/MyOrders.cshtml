@@ -1,0 +1,28 @@
+﻿@model IEnumerable<mwowp.Web.Models.WorkOrder>
+@{
+    <h2>My Work Orders</h2>
+
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Asset</th>
+                <th>Title</th>
+                <th>Status</th>
+                <th>Priority</th>
+                <th>Created At</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var wo in Model)
+            {
+                <tr>
+                    <td>@wo.Asset.Name</td>
+                    <td>@wo.Title</td>
+                    <td>@wo.Status</td>
+                    <td>@wo.Priority</td>
+                    <td>@wo.CreatedAt.ToShortDateString()</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}

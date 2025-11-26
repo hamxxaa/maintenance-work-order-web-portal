@@ -39,20 +39,16 @@ namespace mwowp.Web.Models
         public string Model { get; set; }
         public string SerialNumber { get; set; }
 
-        [BindNever]
+
         public string OwnerUserId { get; set; }
-        [BindNever]
         public ApplicationUser OwnerUser { get; set; }
 
-        [BindNever]
         public AssetStatus Status { get; set; }
-
-        [BindNever]
         public DateTime CreatedAt { get; set; }
 
         // Navigation
         [BindNever]
-        public ICollection<WorkOrder> WorkOrders { get; set; }
+        public ICollection<WorkOrder>? WorkOrders { get; set; }
 
     }
 }

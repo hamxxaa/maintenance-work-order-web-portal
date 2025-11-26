@@ -1,0 +1,179 @@
+﻿@model mwowp.Web.Models.WorkOrder
+@{
+    ViewData["Title"] = "İş Emri Detayı";
+    var availableEquipments = ViewBag.Equipments as IEnumerable<mwowp.Web.Models.Equipment>;
+    var availableSpareParts = ViewBag.SpareParts as IEnumerable<mwowp.Web.Models.SparePart>;
+}
+
+<h2>@Model.Title</h2>
+
+<div class="card mb-3">
+    <div class="card-header">Genel Bilgiler</div>
+    <div class="card-body">
+        <dl class="row mb-0">
+            <dt class="col-sm-3">Açıklama</dt>
+            <dd class="col-sm-9">@Model.Description</dd>
+
+            <dt class="col-sm-3">Öncelik</dt>
+            <dd class="col-sm-9">@Model.Priority</dd>
+
+            <dt class="col-sm-3">Durum</dt>
+            <dd class="col-sm-9">@Model.Status</dd>
+
+            <dt class="col-sm-3">Varlık (Asset)</dt>
+            <dd class="col-sm-9">
+                @Model.Asset?.Name (Id: @Model.AssetId)
+            </dd>
+
+            <dt class="col-sm-3">Oluşturan</dt>
+            <dd class="col-sm-9">@Model.CreatedByUser?.UserName</dd>
+
+            <dt class="col-sm-3">Atanan</dt>
+            <dd class="col-sm-9">@Model.AssignedToUser?.UserName</dd>
+
+            <dt class="col-sm-3">Oluşturulma</dt>
+            <dd class="col-sm-9">@Model.CreatedAt.ToLocalTime()</dd>
+
+            @if (Model.CompletedAt.HasValue)
+            {
+                <dt class="col-sm-3">Tamamlanma</dt>
+                <dd class="col-sm-9">@Model.CompletedAt.Value.ToLocalTime()</dd>
+            }
+        </dl>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-6">
+        <div class="card mb-3">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span>Kullanılan Ekipmanlar</span>
+            </div>
+            <div class="card-body p-0">
+                <table class="table table-sm mb-0">
+                    <thead>
+                        <tr>
+                            <th>Ad</th>
+                            <th>Not</th>
+                            <th>Veriliş</th>
+                            <th>İade</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @if (Model.WorkOrderEquipments?.Any() == true)
+                        {
+                            foreach (var e in Model.WorkOrderEquipments)
+                            {
+                                <tr>
+                                    <td>@e.Equipment?.Name</td>
+                                    <td>@e.UsageNotes</td>
+                                    <td>@e.AssignedAt.ToLocalTime()</td>
+                                    <td>@(e.ReturnedAt.HasValue? e.ReturnedAt.Value.ToLocalTime().ToString() : "-")</td>
+                                </tr>
+                            }
+                        }
+                        else
+                        {
+                            <tr><td colspan="4" class="text-muted">Kayıt yok.</td></tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+            <div class="card-footer">
+                <form asp-action="AddEquipment" asp-controller="WorkOrder" method="post" class="row gy-2 gx-2">
+                    @Html.AntiForgeryToken()
+                    <input type="hidden" name="id" value="@Model.Id" />
+                    <div class="col-5">
+                        <select class="form-select form-select-sm" name="equipmentId" required>
+                            <option value="">Ekipman seç...</option>
+                            @if (availableEquipments != null)
+                            {
+                                foreach (var eq in availableEquipments)
+                                {
+                                    <option value="@eq.Id">@eq.Name</option>
+                                }
+                            }
+                        </select>
+                    </div>
+                    <div class="col-5">
+                        <input type="text" name="usageNotes" class="form-control form-control-sm" placeholder="Kullanım notu" />
+                    </div>
+                    <div class="col-2 d-grid">
+                        <button type="submit" class="btn btn-sm btn-primary">Ekle</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-6">
+        <div class="card mb-3">
+            <div class="card-header">Kullanılan Yedek Parçalar</div>
+            <div class="card-body p-0">
+                <table class="table table-sm mb-0">
+                    <thead>
+                        <tr>
+                            <th>Parça</th>
+                            <th>Miktar</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @if (Model.WorkOrderSpareParts?.Any() == true)
+                        {
+                            foreach (var sp in Model.WorkOrderSpareParts)
+                            {
+                                <tr>
+                                    <td>@sp.SparePart?.Name</td>
+                                    <td>@sp.QuantityUsed</td>
+                                </tr>
+                            }
+                        }
+                        else
+                        {
+                            <tr><td colspan="2" class="text-muted">Kayıt yok.</td></tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+            <div class="card-footer">
+                <form asp-action="AddSparePart" asp-controller="WorkOrder" method="post" class="row gy-2 gx-2">
+                    @Html.AntiForgeryToken()
+                    <input type="hidden" name="id" value="@Model.Id" />
+                    <div class="col-6">
+                        <select class="form-select form-select-sm" name="sparePartId" required>
+                            <option value="">Parça seç...</option>
+                            @if (availableSpareParts != null)
+                            {
+                                foreach (var part in availableSpareParts)
+                                {
+                                    <option value="@part.Id">@part.Name</option>
+                                }
+                            }
+                        </select>
+                    </div>
+                    <div class="col-4">
+                        <input type="number" min="1" name="quantityUsed" class="form-control form-control-sm" placeholder="Miktar" required />
+                    </div>
+                    <div class="col-2 d-grid">
+                        <button type="submit" class="btn btn-sm btn-primary">Ekle</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="d-flex gap-2">
+    <a asp-action="MyTasks" asp-controller="WorkOrder" class="btn btn-secondary btn-sm">Listeye Dön</a>
+
+    @if (Model.Status != mwowp.Web.Models.WorkOrderStatus.Completed
+        && Model.Status != mwowp.Web.Models.WorkOrderStatus.Inspected
+        && Model.Status != mwowp.Web.Models.WorkOrderStatus.Canceled)
+    {
+        <form asp-action="Complete" asp-controller="WorkOrder" method="post" onsubmit="return confirm('İş emrini tamamlamak istediğinize emin misiniz?');">
+            @Html.AntiForgeryToken()
+            <input type="hidden" name="id" value="@Model.Id" />
+            <button type="submit" class="btn btn-success btn-sm">Tamamlandı Olarak İşaretle</button>
+        </form>
+    }
+</div>

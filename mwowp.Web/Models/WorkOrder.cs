@@ -17,25 +17,25 @@ namespace mwowp.Web.Models
         public string? AssignedToUserId { get; set; }
         public ApplicationUser? AssignedToUser { get; set; }
 
-        public string AssignedById { get; set; }
-        public ApplicationUser AssignedBy { get; set; }
+        public string? AssignedById { get; set; }
+        public ApplicationUser? AssignedBy { get; set; }
 
         public int AssetId { get; set; }
         public Asset Asset { get; set; }
 
         public WorkOrderStatus Status { get; set; }
 
-        public PriorityLevel Priority { get; set; }
+        public PriorityLevel? Priority { get; set; }
 
-        public DateTime SLAEndTime { get; set; }
+        public DateTime? SLAEndTime { get; set; }
         public DateTime? CompletedAt { get; set; }
         public DateTime CreatedAt { get; set; }
 
         // Navigation
-        public ICollection<WorkOrderSparePart> WorkOrderSpareParts { get; set; }
-        public ICollection<WorkOrderEquipment> WorkOrderEquipments { get; set; }
-        public ICollection<WorkOrderAttachment> Attachments { get; set; }
-        public ICollection<WorkOrderHistory> History { get; set; }
+        public ICollection<WorkOrderSparePart>? WorkOrderSpareParts { get; set; }
+        public ICollection<WorkOrderEquipment>? WorkOrderEquipments { get; set; }
+        public ICollection<WorkOrderAttachment>? Attachments { get; set; }
+        public ICollection<WorkOrderHistory>? History { get; set; }
     }
 
     public class WorkOrderAttachment
