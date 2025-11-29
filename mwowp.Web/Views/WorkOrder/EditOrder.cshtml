@@ -24,13 +24,7 @@
 
     <div class="mb-3">
         <label asp-for="Priority" class="form-label"></label>
-        <select asp-for="Priority" class="form-select">
-            <option value="@PriorityLevel.Low">Low</option>
-            <option value="@PriorityLevel.Medium">Medium</option>
-            <option value="@PriorityLevel.High">High</option>
-            <option value="@PriorityLevel.Critical">Critical</option>
-        </select>
-        <span asp-validation-for="Priority" class="text-danger"></span>
+        <input class="form-control" value="@Model.Priority" disabled />
     </div>
 
     <div class="mb-3">

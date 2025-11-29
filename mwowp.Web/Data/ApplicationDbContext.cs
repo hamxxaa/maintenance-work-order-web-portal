@@ -20,7 +20,7 @@ namespace mwowp.Web.Data
         public DbSet<WorkOrderAttachment> WorkOrderAttachments { get; set; }
         public DbSet<WorkOrderHistory> WorkOrderHistories { get; set; }
         public DbSet<Inspection> Inspections { get; set; }
-
+        public DbSet<Invoice> Invoices { get; set; }
 
         protected override void OnModelCreating(ModelBuilder builder)
         {
@@ -105,6 +105,29 @@ namespace mwowp.Web.Data
                 .WithMany()
                 .HasForeignKey(i => i.InspectorId)
                 .OnDelete(DeleteBehavior.Restrict);
+
+            // Invoice
+            builder.Entity<Invoice>()
+                .HasOne(i => i.User)
+                .WithMany()
+                .HasForeignKey(i => i.UserId)
+                .OnDelete(DeleteBehavior.Restrict)
+                .IsRequired();
+
+            builder.Entity<Invoice>()
+                .HasOne(i => i.WorkOrder)
+                .WithMany()
+                .HasForeignKey(i => i.WorkOrderId)
+                .OnDelete(DeleteBehavior.Cascade)
+                .IsRequired();
+
+            builder.Entity<Invoice>()
+                .Property(i => i.InvoiceText)
+                .IsRequired();
+
+            builder.Entity<Invoice>()
+                .Property(i => i.InvoiceDate)
+                .IsRequired();
 
             // Enum conversions
             builder.Entity<WorkOrder>()

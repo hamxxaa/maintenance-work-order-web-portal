@@ -6,6 +6,7 @@ using mwowp.Web.Data;
 using mwowp.Web.Models;
 using mwowp.Web.Services;
 using System.Security.Claims;
+using System.Text;
 
 namespace mwowp.Web.Controllers
 {
@@ -111,7 +112,7 @@ namespace mwowp.Web.Controllers
             return View(tasks);
         }
 
-        // Edit ekranı: Manager düzenleyebilir
+        // Edit ekranı: Manager düzenleyebilir (GET)
         [HttpGet]
         [Authorize(Roles = "Manager")]
         public async Task<IActionResult> EditOrder(int id)
@@ -125,6 +126,44 @@ namespace mwowp.Web.Controllers
 
             ViewBag.Assignees = await _userManager.GetUsersInRoleAsync("Technician");
             return View(order);
+        }
+
+        // Edit: sadece atama güncelle (priority sabit kalır)
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        [Authorize(Roles = "Manager")]
+        public async Task<IActionResult> EditOrder([Bind("Id,AssignedToUserId")] WorkOrder input)
+        {
+            if (input.Id <= 0)
+                return BadRequest("Geçersiz iş emri kimliği.");
+
+            var existing = await _context.WorkOrders
+                .Include(wo => wo.Asset)
+                .Include(wo => wo.CreatedByUser)
+                .Include(wo => wo.AssignedToUser)
+                .FirstOrDefaultAsync(wo => wo.Id == input.Id);
+
+            if (existing == null) return NotFound();
+
+            var managerUserId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+
+            // Boş string'i null olarak kabul et (atamayı kaldırma)
+            var newAssignee = string.IsNullOrWhiteSpace(input.AssignedToUserId) ? null : input.AssignedToUserId;
+
+            try
+            {
+                await _workOrderService.UpdateAssignmentAndPriorityAsync(
+                    existing.Id,
+                    newAssignee,
+                    existing.Priority, // Priority değişmeden korunuyor
+                    managerUserId);
+
+                return RedirectToAction(nameof(Index));
+            }
+            catch (KeyNotFoundException)
+            {
+                return NotFound();
+            }
         }
 
         // Görev detayını şu kullanıcılar görebilsin:
@@ -155,7 +194,16 @@ namespace mwowp.Web.Controllers
             ViewBag.Equipments = await _context.Equipments.Where(e => e.Status == EquipmentStatus.Available).ToListAsync();
             ViewBag.SpareParts = await _context.SpareParts.Where(sp => sp.Stock > 0).ToListAsync();
             ViewBag.WorkOrderEquipments = await _context.WorkOrderEquipments.Where(woe => woe.WorkOrderId == id).Include(woe => woe.Equipment).ToListAsync();
-            ViewBag.WorkOrderSpareParts = await _context.WorkOrderSpareParts.Where(wosp => wosp.WorkOrderId == id).Include(wosp => wosp.SparePart).ToListAsync();
+            ViewBag.WorkOrderSpareParts = await _context.WorkOrderSpareParts
+                .Where(wosp => wosp.WorkOrderId == id && (wosp.Status == SparePartStatus.Approved))
+                .Include(wosp => wosp.SparePart)
+                .ToListAsync();
+
+            ViewBag.RequestedSpareParts = await _context.WorkOrderSpareParts
+                .Where(wosp => wosp.WorkOrderId == id && wosp.Status == SparePartStatus.Requested)
+                .Include(wosp => wosp.SparePart)
+                .ToListAsync();
+
 
             return View(order);
         }
@@ -259,7 +307,7 @@ namespace mwowp.Web.Controllers
 
             try
             {
-                await _sparePartService.AddToWorkOrderAsync(id, sparePartId, quantityUsed, currentUser.Id, roles);
+                await _sparePartService.AddRequestToWorkOrderAsync(id, sparePartId, quantityUsed, currentUser.Id, roles);
                 return RedirectToAction(nameof(ViewTask), new { id });
             }
             catch (ArgumentOutOfRangeException)
@@ -280,38 +328,92 @@ namespace mwowp.Web.Controllers
             }
         }
 
-        // Edit post: Manager
-        [Authorize(Roles = "Manager")]
-        public async Task<IActionResult> EditOrder(WorkOrder model)
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        [Authorize(Roles = "User")]
+        public async Task<IActionResult> ApproveSparePart(int id, int workOrderSparePartId)
+        {
+            var currentUser = await _userManager.GetUserAsync(User);
+
+            // Yetki kontrolü: bu iş emri bu kullanıcıya ait mi?
+            var order = await _context.WorkOrders.FirstOrDefaultAsync(wo => wo.Id == id);
+            if (order == null) return NotFound();
+            if (order.CreatedByUserId != currentUser.Id) return Forbid();
+
+            try
+            {
+                await _sparePartService.ApproveSparePartAsync(workOrderSparePartId, currentUser.Id);
+                return RedirectToAction(nameof(ViewTask), new { id });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(ex.Message);
+            }
+            catch (KeyNotFoundException)
+            {
+                return NotFound();
+            }
+        }
+
+        // Kullanıcı reddi: reddederse iş emri iptal edilir
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        [Authorize(Roles = "User")]
+        public async Task<IActionResult> RejectSparePart(int id, int workOrderSparePartId)
+        {
+            var currentUser = await _userManager.GetUserAsync(User);
+
+            var order = await _context.WorkOrders.FirstOrDefaultAsync(wo => wo.Id == id);
+            if (order == null) return NotFound();
+            if (order.CreatedByUserId != currentUser.Id) return Forbid();
+
+            try
+            {
+                // İlgili pending kaydı reddedilir ve iş emri iptal edilir
+                await _sparePartService.RejectSparePartAsync(workOrderSparePartId, currentUser.Id);
+                await _workOrderService.CancelWorkOrderAsync(id, currentUser.Id);
+                return RedirectToAction(nameof(MyOrders));
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(ex.Message);
+            }
+            catch (KeyNotFoundException)
+            {
+                return NotFound();
+            }
+        }
+
+        [HttpGet]
+        [Authorize]
+        public async Task<IActionResult> DownloadInvoice(int id)
         {
             var workOrder = await _context.WorkOrders
-                .Include(wo => wo.Asset)
-                .Include(wo => wo.CreatedByUser)
-                .Include(wo => wo.AssignedToUser)
-                .FirstOrDefaultAsync(wo => wo.Id == model.Id);
+                .AsNoTracking()
+                .FirstOrDefaultAsync(wo => wo.Id == id);
 
-            if (workOrder == null) return NotFound();
-
-            ModelState.Remove("CreatedByUserId");
-            ModelState.Remove("CreatedByUser");
-            ModelState.Remove("Asset");
-            ModelState.Remove("Description");
-            ModelState.Remove("Title");
-
-            if (!ModelState.IsValid)
+            if (workOrder == null)
             {
-                ViewBag.Assignees = await _userManager.GetUsersInRoleAsync("Technician");
-                return View(workOrder);
+                return NotFound();
             }
 
-            var manager = await _userManager.GetUserAsync(User);
-            await _workOrderService.UpdateAssignmentAndPriorityAsync(
-                workOrderId: model.Id,
-                assignedToUserId: model.AssignedToUserId,
-                priority: model.Priority,
-                managerUserId: manager.Id);
+            if (workOrder.Status == WorkOrderStatus.Canceled)
+            {
+                return BadRequest("İptal edilen iş emri için fatura oluşturulamaz.");
+            }
 
-            return RedirectToAction(nameof(Index));
+            var invoice = await _context.Invoices
+                .AsNoTracking()
+                .FirstOrDefaultAsync(i => i.WorkOrderId == id);
+
+            if (invoice == null)
+            {
+                return NotFound("Bu iş emri için kayıtlı fatura metni bulunamadı.");
+            }
+
+            var fileName = $"WO-{workOrder.Id:D6}-Invoice.txt";
+            var bytes = Encoding.UTF8.GetBytes(invoice.InvoiceText ?? string.Empty);
+            return File(bytes, "text/plain", fileName);
         }
     }
 }

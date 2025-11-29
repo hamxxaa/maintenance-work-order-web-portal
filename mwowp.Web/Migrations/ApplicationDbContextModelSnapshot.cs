@@ -337,6 +337,37 @@ namespace mwowp.Web.Migrations
                     b.ToTable("Inspections");
                 });
 
+            modelBuilder.Entity("mwowp.Web.Models.Invoice", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("InvoiceDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("InvoiceText")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("UserId")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<int>("WorkOrderId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId");
+
+                    b.HasIndex("WorkOrderId");
+
+                    b.ToTable("Invoices");
+                });
+
             modelBuilder.Entity("mwowp.Web.Models.SparePart", b =>
                 {
                     b.Property<int>("Id")
@@ -532,6 +563,9 @@ namespace mwowp.Web.Migrations
                     b.Property<int>("SparePartId")
                         .HasColumnType("int");
 
+                    b.Property<int>("Status")
+                        .HasColumnType("int");
+
                     b.Property<int>("WorkOrderId")
                         .HasColumnType("int");
 
@@ -621,6 +655,25 @@ namespace mwowp.Web.Migrations
                         .IsRequired();
 
                     b.Navigation("Inspector");
+
+                    b.Navigation("WorkOrder");
+                });
+
+            modelBuilder.Entity("mwowp.Web.Models.Invoice", b =>
+                {
+                    b.HasOne("mwowp.Web.Models.ApplicationUser", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("mwowp.Web.Models.WorkOrder", "WorkOrder")
+                        .WithMany()
+                        .HasForeignKey("WorkOrderId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("User");
 
                     b.Navigation("WorkOrder");
                 });

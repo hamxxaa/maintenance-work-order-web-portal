@@ -27,6 +27,13 @@
         Critical
     }
 
+    public enum SparePartStatus
+    {
+        Requested,
+        Approved,
+        Rejected
+    }
+
     public enum AssetStatus
     {
         OnRepair,
@@ -58,6 +65,27 @@
                 : System.TimeSpan.Zero;
 
             return startDate.Add(duration);
+        }
+    }
+    // PriorityLevel -> Ücret (decimal) eşlemesi
+    public static class FeeDefinitions
+    {
+        // İhtiyaç halinde bu sözlüğü tek yerden güncelleyebilirsiniz.
+        // Para birimi: varsayılan olarak yerel birim (örn. TRY) - sadece numerik değer tutulur.
+        public static readonly System.Collections.Generic.IReadOnlyDictionary<PriorityLevel, decimal> FeeByPriority
+            = new System.Collections.Generic.Dictionary<PriorityLevel, decimal>
+            {
+                // Örnek ücretler (isteğe göre güncellenebilir):
+                { PriorityLevel.Low, 20m },
+                { PriorityLevel.Medium, 30m },
+                { PriorityLevel.High, 50m },
+                { PriorityLevel.Critical, 100m },
+            };
+
+        // İlgili öncelik için ücreti döndürür; bulunamazsa 0 döner.
+        public static decimal GetFee(PriorityLevel priority)
+        {
+            return FeeByPriority.TryGetValue(priority, out var fee) ? fee : 0m;
         }
     }
 }

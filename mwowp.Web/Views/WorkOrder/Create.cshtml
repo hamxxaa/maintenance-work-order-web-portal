@@ -13,6 +13,16 @@
         <label asp-for="Description"></label>
         <textarea asp-for="Description" class="form-control"></textarea>
     </div>
+    <div class="mb-3">
+        <label asp-for="Priority" class="form-label"></label>
+        <select asp-for="Priority" class="form-select">
+            <option value="@PriorityLevel.Low">Low(@FeeDefinitions.GetFee(PriorityLevel.Low)$)</option>
+            <option value="@PriorityLevel.Medium">Medium(@FeeDefinitions.GetFee(PriorityLevel.Medium)$)</option>
+            <option value="@PriorityLevel.High">High(@FeeDefinitions.GetFee(PriorityLevel.High)$)</option>
+            <option value="@PriorityLevel.Critical">Critical(@FeeDefinitions.GetFee(PriorityLevel.Critical)$) </option>
+        </select>
+        <span asp-validation-for="Priority" class="text-danger"></span>
+    </div>
     <div class="form-group">
         <label>Resimler (çoklu)</label>
         <input type="file" name="images" multiple accept="image/*" class="form-control" />

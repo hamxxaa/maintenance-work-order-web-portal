@@ -10,6 +10,7 @@
                 <th>Status</th>
                 <th>Priority</th>
                 <th>Created At</th>
+                <th>Actions</th>
             </tr>
         </thead>
         <tbody>
@@ -21,6 +22,14 @@
                     <td>@wo.Status</td>
                     <td>@wo.Priority</td>
                     <td>@wo.CreatedAt.ToShortDateString()</td>
+                    <td>
+                        <a asp-controller="WorkOrder"
+                           asp-action="ViewTask"
+                           asp-route-id="@wo.Id"
+                           class="btn btn-primary btn-sm">
+                            View
+                        </a>
+                    </td>
                 </tr>
             }
         </tbody>

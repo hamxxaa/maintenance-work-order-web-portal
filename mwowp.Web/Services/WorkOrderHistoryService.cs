@@ -44,8 +44,8 @@ namespace mwowp.Web.Services
         public async Task LogEquipmentAddedAsync(int workOrderId, string changedByUserId)
             => await LogAsync(workOrderId, changedByUserId, "EquipmentAdded", null, null);
 
-        public async Task LogSparePartAddedAsync(int workOrderId, string changedByUserId)
-            => await LogAsync(workOrderId, changedByUserId, "SparePartAdded", null, null);
+        public async Task LogSparePartRequestedAsync(int workOrderId, string changedByUserId)
+            => await LogAsync(workOrderId, changedByUserId, "SparePartRequested", null, null);
 
         public async Task LogAttachmentAddedAsync(int workOrderId, string filePath)
             => await LogAsync(workOrderId, null, "AttachmentAdded", null, filePath);
@@ -55,5 +55,11 @@ namespace mwowp.Web.Services
 
         public async Task LogCompletedAsync(int workOrderId, string changedByUserId)
             => await LogAsync(workOrderId, changedByUserId, "Completed", null ,null);
+
+        public async Task LogSparePartApprovedAsync(int workOrderId, string changedByUserId)
+            => await LogAsync(workOrderId, changedByUserId, "SparePartApproved", null, null);
+
+        public async Task LogSparePartRejectedAsync(int workOrderId, string changedByUserId)
+    => await LogAsync(workOrderId, changedByUserId, "SparePartRejected", null, null);
     }
 }

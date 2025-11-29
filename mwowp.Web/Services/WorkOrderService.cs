@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using mwowp.Web.Data;
 using mwowp.Web.Hubs;
 using mwowp.Web.Models;
+using System.Text;
 
 namespace mwowp.Web.Services
 {
@@ -91,8 +92,13 @@ namespace mwowp.Web.Services
         public async Task CompleteAsync(int workOrderId, string currentUserId, IEnumerable<string> roles, string repairReport)
         {
             var wo = await _db.WorkOrders
+                .Include(w => w.Asset)
+                .Include(w => w.CreatedByUser)
+                .Include(w => w.AssignedToUser)
                 .Include(w => w.WorkOrderEquipments)
                     .ThenInclude(we => we.Equipment)
+                .Include(w => w.WorkOrderSpareParts)
+                    .ThenInclude(wosp => wosp.SparePart)
                 .FirstOrDefaultAsync(w => w.Id == workOrderId);
             if (wo == null) throw new KeyNotFoundException();
 
@@ -118,6 +124,76 @@ namespace mwowp.Web.Services
                     {
                         woe.Equipment.Status = EquipmentStatus.Available;
                     }
+                }
+            }
+
+            if (wo.Status == WorkOrderStatus.Completed)
+            {
+                var alreadyInvoiced = await _db.Invoices.AsNoTracking().AnyAsync(i => i.WorkOrderId == wo.Id);
+                if (!alreadyInvoiced)
+                {
+                    var approvedSpareParts = wo.WorkOrderSpareParts?
+                        .Where(x => x.Status == SparePartStatus.Approved)
+                        .ToList() ?? new List<WorkOrderSparePart>();
+
+                    var effectivePriority = wo.Priority ?? PriorityLevel.Medium;
+                    var serviceFee = FeeDefinitions.GetFee(effectivePriority);
+
+                    decimal sparePartsTotal = approvedSpareParts.Sum(sp =>
+                    {
+                        var unit = sp.SparePart?.UnitPrice ?? 0m;
+                        return unit * sp.QuantityUsed;
+                    });
+
+                    var grandTotal = serviceFee + sparePartsTotal;
+
+                    var sb = new StringBuilder();
+                    sb.AppendLine("=== Ýþ Emri Faturasý ===");
+                    sb.AppendLine($"Fatura No: WO-{wo.Id:D6}");
+                    sb.AppendLine($"Baþlýk: {wo.Title}");
+                    sb.AppendLine($"Açýklama: {wo.Description}");
+                    sb.AppendLine($"Durum: {wo.Status}");
+                    sb.AppendLine($"Öncelik: {effectivePriority}");
+                    sb.AppendLine($"Varlýk: {(wo.Asset?.Name ?? "-")} (Id: {wo.AssetId})");
+                    sb.AppendLine($"Oluþturan: {wo.CreatedByUser?.UserName ?? "-"}");
+                    sb.AppendLine($"Atanan: {wo.AssignedToUser?.UserName ?? "-"}");
+                    sb.AppendLine($"Oluþturulma: {wo.CreatedAt.ToLocalTime()}");
+                    if (wo.CompletedAt.HasValue)
+                    {
+                        sb.AppendLine($"Tamamlanma: {wo.CompletedAt.Value.ToLocalTime()}");
+                    }
+                    sb.AppendLine();
+
+                    sb.AppendLine("--- Kalemler ---");
+                    sb.AppendLine($"Servis Ücreti ({effectivePriority}): {serviceFee.ToString()}$");
+                    if (approvedSpareParts.Any())
+                    {
+                        sb.AppendLine("Onaylanmýþ Yedek Parçalar:");
+                        foreach (var sp in approvedSpareParts)
+                        {
+                            var unit = sp.SparePart?.UnitPrice ?? 0m;
+                            var total = unit * sp.QuantityUsed;
+                            sb.AppendLine($" - {sp.SparePart?.Name} | Miktar: {sp.QuantityUsed} | Birim: {unit.ToString()}$ | Toplam: {total.ToString()}$");
+                        }
+                        sb.AppendLine($"Yedek Parça Toplamý: {sparePartsTotal.ToString()}$");
+                    }
+                    else
+                    {
+                        sb.AppendLine("Onaylanmýþ yedek parça bulunmuyor.");
+                    }
+
+                    sb.AppendLine();
+                    sb.AppendLine($"GENEL TOPLAM: {grandTotal.ToString()}$");
+                    sb.AppendLine("=========================");
+
+                    var invoice = new Invoice
+                    {
+                        UserId = wo.CreatedByUserId,
+                        WorkOrderId = wo.Id,
+                        InvoiceText = sb.ToString(),
+                        InvoiceDate = DateTime.UtcNow
+                    };
+                    _db.Invoices.Add(invoice);
                 }
             }
 
@@ -183,6 +259,7 @@ namespace mwowp.Web.Services
             }
             return inspection;
         }
+
         public async Task UpdateAssignmentAndPriorityAsync(int workOrderId, string? assignedToUserId, PriorityLevel? priority, string managerUserId)
         {
             var workOrder = await _db.WorkOrders
@@ -197,7 +274,6 @@ namespace mwowp.Web.Services
             var oldPriority = workOrder.Priority;
             var oldStatus = workOrder.Status;
 
-            // Güncelle
             workOrder.Priority = priority;
             var effectivePriority = workOrder.Priority ?? PriorityLevel.Medium;
             workOrder.SLAEndTime = SlaDefinitions.GetSlaEndDate(workOrder.CreatedAt, effectivePriority);
@@ -208,7 +284,6 @@ namespace mwowp.Web.Services
 
             await _db.SaveChangesAsync();
 
-            // History loglarý
             if (oldAssignee != assignedToUserId)
             {
                 await _history.LogAssignmentAsync(workOrder, managerUserId, oldAssignee, assignedToUserId);
@@ -232,6 +307,61 @@ namespace mwowp.Web.Services
             if (oldStatus != workOrder.Status)
             {
                 await _history.LogStatusAsync(workOrder, managerUserId, oldStatus, workOrder.Status);
+            }
+        }
+
+        public async Task CancelWorkOrderAsync(int workOrderId, string cancelledByUserId)
+        {
+            var wo = await _db.WorkOrders
+                .Include(w => w.Asset)
+                .Include(w => w.CreatedByUser)
+                .Include(w => w.AssignedToUser)
+                .FirstOrDefaultAsync(w => w.Id == workOrderId);
+            if (wo == null) throw new KeyNotFoundException();
+
+            // Yetki: iþ emrini oluþturan veya (opsiyonel) atayan manager iptal edebilir.
+            var isOwner = wo.CreatedByUserId == cancelledByUserId;
+            var isManagerAssigner = wo.AssignedById == cancelledByUserId;
+            if (!isOwner && !isManagerAssigner)
+                throw new UnauthorizedAccessException();
+
+            if (wo.Status == WorkOrderStatus.Completed ||
+                wo.Status == WorkOrderStatus.Inspected ||
+                wo.Status == WorkOrderStatus.Canceled)
+                throw new InvalidOperationException("Bu durumdaki iþ emri iptal edilemez.");
+
+            var oldStatus = wo.Status;
+            wo.Status = WorkOrderStatus.Canceled;
+
+            if (wo.WorkOrderEquipments != null && wo.WorkOrderEquipments.Any())
+            {
+                var now = DateTime.UtcNow;
+                foreach (var woe in wo.WorkOrderEquipments.Where(e => !e.ReturnedAt.HasValue))
+                {
+                    woe.ReturnedAt = now;
+                    if (woe.Equipment != null && woe.Equipment.Status == EquipmentStatus.InUse)
+                    {
+                        woe.Equipment.Status = EquipmentStatus.Available;
+                    }
+                }
+            }
+
+            await _db.SaveChangesAsync();
+            await _history.LogStatusAsync(wo, cancelledByUserId, oldStatus, WorkOrderStatus.Canceled);
+
+            // Atanmýþ teknisyene iptal bildirimi
+            if (!string.IsNullOrWhiteSpace(wo.AssignedToUserId))
+            {
+                await _hubContext.Clients.User(wo.AssignedToUserId).SendAsync(
+                    "WorkOrderCanceled",
+                    new
+                    {
+                        id = wo.Id,
+                        title = wo.Title,
+                        assetName = wo.Asset?.Name,
+                        canceledBy = cancelledByUserId,
+                        previousStatus = oldStatus.ToString()
+                    });
             }
         }
     }

@@ -93,6 +93,8 @@ namespace mwowp.Web.Models
 
         public int SparePartId { get; set; }
         public SparePart SparePart { get; set; }
+        
+        public SparePartStatus Status { get; set; }
 
         public int QuantityUsed { get; set; }
     }

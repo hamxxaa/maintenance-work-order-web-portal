@@ -1,14 +1,56 @@
-﻿@model mwowp.Web.Models.WorkOrder
+﻿@using System.Security.Claims
+@model mwowp.Web.Models.WorkOrder
 @{
     ViewData["Title"] = "İş Emri Detayı";
     var availableEquipments = ViewBag.Equipments as IEnumerable<mwowp.Web.Models.Equipment>;
     var availableSpareParts = ViewBag.SpareParts as IEnumerable<mwowp.Web.Models.SparePart>;
-    var isReadOnly = Model.Status == mwowp.Web.Models.WorkOrderStatus.Completed || Model.Status == mwowp.Web.Models.WorkOrderStatus.Canceled || Model.Status == mwowp.Web.Models.WorkOrderStatus.Inspected;
+
+    // Controller'dan gelen ayrıştırılmış listeler
+    var approvedSpareParts = ViewBag.WorkOrderSpareParts as IEnumerable<mwowp.Web.Models.WorkOrderSparePart>;
+    var requestedSpareParts = ViewBag.RequestedSpareParts as IEnumerable<mwowp.Web.Models.WorkOrderSparePart>;
+
+    var isReadOnly = Model.Status == mwowp.Web.Models.WorkOrderStatus.Completed
+                  || Model.Status == mwowp.Web.Models.WorkOrderStatus.Canceled
+                  || Model.Status == mwowp.Web.Models.WorkOrderStatus.Inspected;
+
     var isTechnician = User.IsInRole("Technician");
     var isManager = User.IsInRole("Manager");
+    var isOwnerUser = User.IsInRole("User") && User.FindFirst(ClaimTypes.NameIdentifier)?.Value == Model.CreatedByUserId;
+
+    // Öncelik bazlı servis ücreti (örnek değerler)
+    var efectivePriority = Model.Priority ?? PriorityLevel.Medium;
+    decimal priorityCost = FeeDefinitions.GetFee(efectivePriority);
+
+    // Onaylanmış yedek parça toplamı
+    decimal sparePartsTotal = 0m;
+    if (approvedSpareParts != null)
+    {
+        foreach (var sp in approvedSpareParts)
+        {
+            var unit = sp.SparePart?.UnitPrice ?? 0m;
+            sparePartsTotal += unit * sp.QuantityUsed;
+        }
+    }
+
+    // Toplam gider (yalnızca read-only durumlarda gösterilecek)
+    var grandTotal = priorityCost + sparePartsTotal;
 }
 
 <h2>@Model.Title</h2>
+
+@if (isReadOnly && (Model.Status != WorkOrderStatus.Canceled))
+{
+    <div class="alert alert-info d-flex justify-content-between align-items-center">
+        <div>
+            <strong>Toplam Gider:</strong>
+            <span class="ms-1">@grandTotal.ToString()$</span>
+            <span class="ms-3 text-muted">(Servis: @priorityCost.ToString()$ Yedek Parça: @sparePartsTotal.ToString()$)</span>
+        </div>
+        <a asp-action="DownloadInvoice" asp-controller="WorkOrder" asp-route-id="@Model.Id" class="btn btn-sm btn-outline-primary">
+            Fatura İndir (TXT)
+        </a>
+    </div>
+}
 
 <div class="card mb-3">
     <div class="card-header">Genel Bilgiler</div>
@@ -139,6 +181,7 @@ else
 </div>
 
 <div class="row">
+    <!-- Ekipmanlar -->
     <div class="col-md-6">
         <div class="card mb-3">
             <div class="card-header d-flex justify-content-between align-items-center">
@@ -208,25 +251,32 @@ else
         </div>
     </div>
 
+    <!-- Yedek Parçalar -->
     <div class="col-md-6">
         <div class="card mb-3">
-            <div class="card-header">Kullanılan Yedek Parçalar</div>
+            <div class="card-header">Onaylanmış Yedek Parçalar</div>
             <div class="card-body p-0">
                 <table class="table table-sm mb-0">
                     <thead>
                         <tr>
                             <th>Parça</th>
                             <th>Miktar</th>
+                            <th>Birim Fiyat</th>
+                            <th>Toplam</th>
                         </tr>
                     </thead>
                     <tbody>
-                        @if (Model.WorkOrderSpareParts?.Any() == true)
+                        @if (approvedSpareParts != null && approvedSpareParts.Any())
                         {
-                            foreach (var sp in Model.WorkOrderSpareParts)
+                            foreach (var sp in approvedSpareParts)
                             {
+                                var unit = sp.SparePart?.UnitPrice ?? 0m;
+                                var total = unit * sp.QuantityUsed;
                                 <tr>
                                     <td>@sp.SparePart?.Name</td>
                                     <td>@sp.QuantityUsed</td>
+                                    <td>@unit.ToString()$</td>
+                                    <td>@total.ToString()$</td>
                                 </tr>
                             }
                         }
@@ -257,7 +307,7 @@ else
                                 {
                                     foreach (var part in availableSpareParts)
                                     {
-                                        <option value="@part.Id">@part.Name</option>
+                                        <option value="@part.Id">@part.Name (@part.UnitPrice.ToString()$)</option>
                                     }
                                 }
                             </select>
@@ -266,7 +316,10 @@ else
                             <input type="number" min="1" name="quantityUsed" class="form-control form-control-sm" placeholder="Miktar" required />
                         </div>
                         <div class="col-2 d-grid">
-                            <button type="submit" class="btn btn-sm btn-primary">Ekle</button>
+                            <button type="submit" class="btn btn-sm btn-primary">Talep Et</button>
+                        </div>
+                        <div class="col-12">
+                            <small class="text-muted">Not: Bu işlem parça kullanımını direkt eklemez, kullanıcı onayına gönderir.</small>
                         </div>
                     </form>
                 }
@@ -274,17 +327,71 @@ else
                 {
                     @if (isReadOnly)
                     {
-                        <div class="text-muted small">Tamamlanan iş emrinde parça eklenemez.</div>                
+                        <div class="text-muted small">Tamamlanan iş emrinde parça talep edilemez.</div>                
                     }
                     else
                     {
-                        <div class="text-muted small">Sadece tekniker parça ekleyebilir.</div>
+                        <div class="text-muted small">Sadece tekniker parça talep edebilir.</div>
                     }
                 }
             </div>
         </div>
     </div>
 </div>
+
+@if (isOwnerUser && requestedSpareParts != null && requestedSpareParts.Any())
+{
+    <div class="card mb-3">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <span>Bekleyen Yedek Parça Talepleri</span>
+            <small class="text-muted">Onayladığınızda stok düşer; reddederseniz iş emri iptal olur.</small>
+        </div>
+        <div class="card-body p-0">
+            <table class="table table-sm mb-0">
+                <thead>
+                    <tr>
+                        <th>Parça</th>
+                        <th>Miktar</th>
+                        <th>Birim Fiyat</th>
+                        <th>Toplam</th>
+                        <th>İşlem</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var req in requestedSpareParts)
+                    {
+                        var unit = req.SparePart?.UnitPrice ?? 0m;
+                        var total = unit * req.QuantityUsed;
+                        <tr>
+                            <td>@req.SparePart?.Name</td>
+                            <td>@req.QuantityUsed</td>
+                            <td>@unit.ToString()$</td>
+                            <td>@total.ToString()$</td>
+                            <td class="d-flex gap-1">
+                                <form asp-action="ApproveSparePart" asp-controller="WorkOrder" method="post" onsubmit="return confirm('Bu parça talebini onaylamak istediğinize emin misiniz?');">
+                                    @Html.AntiForgeryToken()
+                                    <input type="hidden" name="id" value="@Model.Id" />
+                                    <input type="hidden" name="workOrderSparePartId" value="@req.Id" />
+                                    <button type="submit" class="btn btn-success btn-sm">Onayla</button>
+                                </form>
+                                <form asp-action="RejectSparePart" asp-controller="WorkOrder" method="post" onsubmit="return confirm('Reddeder ve iş emrini iptal edersiniz. Emin misiniz?');">
+                                    @Html.AntiForgeryToken()
+                                    <input type="hidden" name="id" value="@Model.Id" />
+                                    <input type="hidden" name="workOrderSparePartId" value="@req.Id" />
+                                    <button type="submit" class="btn btn-danger btn-sm">Reddet</button>
+                                </form>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+}
+else if (isOwnerUser && (requestedSpareParts == null || !requestedSpareParts.Any()))
+{
+    <div class="alert alert-light py-2">Bekleyen yedek parça talebi bulunmuyor.</div>
+}
 
 <div class="d-flex gap-2">
     @if (isTechnician)
