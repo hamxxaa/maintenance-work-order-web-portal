@@ -394,6 +394,9 @@ namespace mwowp.Web.Migrations
                     b.Property<string>("Priority")
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<string>("RepairReport")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<DateTime?>("SLAEndTime")
                         .HasColumnType("datetime2");
 
@@ -492,18 +495,15 @@ namespace mwowp.Web.Migrations
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("ChangedByUserId")
-                        .IsRequired()
                         .HasColumnType("nvarchar(450)");
 
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
 
                     b.Property<string>("NewValue")
-                        .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("OldValue")
-                        .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<int>("WorkOrderId")
@@ -692,8 +692,7 @@ namespace mwowp.Web.Migrations
                     b.HasOne("mwowp.Web.Models.ApplicationUser", "ChangedByUser")
                         .WithMany()
                         .HasForeignKey("ChangedByUserId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
+                        .OnDelete(DeleteBehavior.Restrict);
 
                     b.HasOne("mwowp.Web.Models.WorkOrder", "WorkOrder")
                         .WithMany("History")

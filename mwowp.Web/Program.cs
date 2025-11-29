@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using mwowp.Web.Data;
 using mwowp.Web.Models;
+using mwowp.Web.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -41,8 +42,11 @@ builder.Services.AddSignalR();
 // =========================
 // 5. Application Services (opsiyonel)
 // =========================
-// Örnek: builder.Services.AddScoped<IWorkOrderService, WorkOrderService>();
-
+builder.Services.AddScoped<IWorkOrderService, WorkOrderService>();
+builder.Services.AddScoped<IAttachmentService, AttachmentService>();
+builder.Services.AddScoped<IEquipmentService, EquipmentService>();
+builder.Services.AddScoped<ISparePartService, SparePartService>();
+builder.Services.AddScoped<IWorkOrderHistoryService, WorkOrderHistoryService>(); // <= EKLENDI
 
 var app = builder.Build();
 

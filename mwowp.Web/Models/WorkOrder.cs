@@ -27,6 +27,8 @@ namespace mwowp.Web.Models
 
         public PriorityLevel? Priority { get; set; }
 
+        public string? RepairReport { get; set; }
+
         public DateTime? SLAEndTime { get; set; }
         public DateTime? CompletedAt { get; set; }
         public DateTime CreatedAt { get; set; }
@@ -56,11 +58,11 @@ namespace mwowp.Web.Models
         public WorkOrder WorkOrder { get; set; }
 
         public string Action { get; set; }
-        public string OldValue { get; set; }
-        public string NewValue { get; set; }
+        public string? OldValue { get; set; }
+        public string? NewValue { get; set; }
 
-        public string ChangedByUserId { get; set; }
-        public ApplicationUser ChangedByUser { get; set; }
+        public string? ChangedByUserId { get; set; }
+        public ApplicationUser? ChangedByUser { get; set; }
 
         public DateTime CreatedAt { get; set; }
     }

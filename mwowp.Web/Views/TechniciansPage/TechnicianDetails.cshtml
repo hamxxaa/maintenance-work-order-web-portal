@@ -1,0 +1,92 @@
+@using mwowp.Web.Models
+
+@{
+    ViewData["Title"] = "Teknisyen Detayý";
+    var technician = ViewBag.Technician as ApplicationUser;
+    var workOrders = ViewBag.WorkOrders as List<WorkOrder>;
+}
+
+<h2>Teknisyen Bilgileri</h2>
+
+@if (technician == null)
+{
+    <div class="alert alert-danger">Teknisyen bulunamadý.</div>
+}
+else
+{
+    <div class="card mb-4">
+        <div class="card-body">
+            <dl class="row mb-0">
+                <dt class="col-sm-3">Ad Soyad</dt>
+                <dd class="col-sm-9">@technician.FullName</dd>
+
+                <dt class="col-sm-3">Kullanýcý Adý</dt>
+                <dd class="col-sm-9">@technician.UserName</dd>
+
+                <dt class="col-sm-3">E-posta</dt>
+                <dd class="col-sm-9">@technician.Email</dd>
+
+                <dt class="col-sm-3">Telefon</dt>
+                <dd class="col-sm-9">@technician.PhoneNumber</dd>
+
+                <dt class="col-sm-3">Id</dt>
+                <dd class="col-sm-9">@technician.Id</dd>
+            </dl>
+        </div>
+    </div>
+
+    <h3>Atanan Work Orderlar</h3>
+
+    @if (workOrders == null || !workOrders.Any())
+    {
+        <div class="alert alert-info">Bu teknisyene atanmýþ iþ emri yok.</div>
+    }
+    else
+    {
+        <table class="table table-bordered table-sm table-striped align-middle">
+            <thead>
+            <tr>
+                <th>#</th>
+                <th>Baþlýk</th>
+                <th>Varlýk</th>
+                <th>Durum</th>
+                <th>Öncelik</th>
+                <th>Oluþturan</th>
+                <th style="width:230px;">Ýþlemler</th>
+            </tr>
+            </thead>
+            <tbody>
+            @foreach (var wo in workOrders)
+            {
+                <tr>
+                    <td>@wo.Id</td>
+                    <td>@wo.Title</td>
+                    <td>@wo.Asset?.Name</td>
+                    <td>@wo.Status</td>
+                    <td>@(wo.Priority?.ToString() ?? "-")</td>
+                    <td>@wo.CreatedByUser?.FullName</td>
+                    <td>
+                        <a asp-controller="WorkOrder"
+                        asp-action="ViewTask"
+                        asp-route-id="@wo.Id"
+                        class="btn btn-sm btn-info">View</a>
+                        <a asp-controller="WorkOrder"
+                        asp-action="EditOrder"
+                        asp-route-id="@wo.Id"
+                        class="btn btn-sm btn-warning">Edit</a>
+                        @if (wo.Status == WorkOrderStatus.Completed)
+                        {
+                            <a asp-controller="WorkOrder"
+                            asp-action="Inspection"
+                            asp-route-id="@wo.Id"
+                            class="btn btn-sm btn-secondary">Inspection</a>
+                        }
+                    </td>
+                </tr>
+            }
+            </tbody>
+        </table>
+    }
+}
+
+<a asp-action="List" class="btn btn-outline-primary btn-sm">Geri Dön</a>
