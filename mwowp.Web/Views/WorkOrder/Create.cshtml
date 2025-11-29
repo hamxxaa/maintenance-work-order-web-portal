@@ -14,13 +14,9 @@
         <textarea asp-for="Description" class="form-control"></textarea>
     </div>
     <div class="form-group">
-        <label asp-for="Priority"></label>
-        <select asp-for="Priority" class="form-control">
-            <option value="Low">Low</option>
-            <option value="Medium">Medium</option>
-            <option value="High">High</option>
-            <option value="Critical">Critical</option>
-        </select>
+        <label>Resimler (çoklu)</label>
+        <input type="file" name="images" multiple accept="image/*" class="form-control" />
+        <small class="form-text text-muted">Birden fazla resim seçebilirsiniz. (JPG, PNG, GIF, WEBP - max 5MB/ dosya)</small>
     </div>
     <button type="submit" class="btn btn-primary">Create</button>
 </form>

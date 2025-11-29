@@ -4,20 +4,28 @@ using Microsoft.EntityFrameworkCore;
 using mwowp.Web.Data;
 using mwowp.Web.Models;
 using System.Security.Claims;
+using Microsoft.AspNetCore.Http;
+using System.IO;
+using Microsoft.AspNetCore.Authorization;
 
 namespace mwowp.Web.Controllers
 {
+    [Authorize] // Tüm controller için kimlik doğrulama şart
     public class WorkOrderController : Controller
     {
         private readonly ApplicationDbContext _context;
         private readonly UserManager<ApplicationUser> _userManager;
+        private readonly IWebHostEnvironment _env;
 
-        public WorkOrderController(ApplicationDbContext context, UserManager<ApplicationUser> userManager)
+        public WorkOrderController(ApplicationDbContext context, UserManager<ApplicationUser> userManager, IWebHostEnvironment env)
         {
             _context = context;
             _userManager = userManager;
+            _env = env;
         }
 
+        // Sadece normal kullanıcılar iş emri oluşturabilir
+        [Authorize(Roles = "User")]
         public async Task<IActionResult> Create()
         {
             var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
@@ -29,7 +37,8 @@ namespace mwowp.Web.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Create([Bind("AssetId,Title,Description,Priority")] WorkOrder workOrder)
+        [Authorize(Roles = "User")]
+        public async Task<IActionResult> Create([Bind("AssetId,Title,Description,Priority")] WorkOrder workOrder, List<IFormFile>? images)
         {
             ModelState.Remove("CreatedByUserId");
             ModelState.Remove("CreatedByUser");
@@ -42,9 +51,10 @@ namespace mwowp.Web.Controllers
                 workOrder.CreatedByUserId = user.Id;
                 workOrder.Status = WorkOrderStatus.Created;
                 var asset = await _context.Assets
-                .AsNoTracking()
-                .FirstOrDefaultAsync(a => a.Id == workOrder.AssetId);
-                if (asset != null) {
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(a => a.Id == workOrder.AssetId);
+                if (asset != null)
+                {
                     asset.Status = AssetStatus.OnRepair;
                     _context.Assets.Update(asset);
                     workOrder.Asset = asset;
@@ -52,18 +62,63 @@ namespace mwowp.Web.Controllers
                 workOrder.CreatedAt = DateTime.UtcNow;
                 _context.WorkOrders.Add(workOrder);
                 await _context.SaveChangesAsync();
+
+                // Resim yükleme
+                if (images != null && images.Count > 0)
+                {
+                    var allowedExt = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { ".jpg", ".jpeg", ".png", ".gif", ".webp" };
+                    var maxSizeBytes = 5 * 1024 * 1024; // 5MB
+                    var uploadRoot = Path.Combine(_env.WebRootPath, "uploads", "workorders", workOrder.Id.ToString());
+                    Directory.CreateDirectory(uploadRoot);
+
+                    var attachments = new List<WorkOrderAttachment>();
+
+                    foreach (var img in images)
+                    {
+                        if (img.Length == 0) continue;
+                        if (!img.ContentType.StartsWith("image/", StringComparison.OrdinalIgnoreCase)) continue;
+                        if (img.Length > maxSizeBytes) continue;
+
+                        var ext = Path.GetExtension(img.FileName);
+                        if (!allowedExt.Contains(ext)) continue;
+
+                        var fileName = $"{Guid.NewGuid()}{ext}";
+                        var physicalPath = Path.Combine(uploadRoot, fileName);
+                        using (var fs = new FileStream(physicalPath, FileMode.Create))
+                        {
+                            await img.CopyToAsync(fs);
+                        }
+
+                        // Göreli path (wwwroot sonrası)
+                        var relativePath = Path.Combine("uploads", "workorders", workOrder.Id.ToString(), fileName).Replace("\\", "/");
+
+                        attachments.Add(new WorkOrderAttachment
+                        {
+                            WorkOrderId = workOrder.Id,
+                            FilePath = relativePath,
+                            CreatedAt = DateTime.UtcNow
+                        });
+                    }
+
+                    if (attachments.Count > 0)
+                    {
+                        _context.WorkOrderAttachments.AddRange(attachments);
+                        await _context.SaveChangesAsync();
+                    }
+                }
+
                 return RedirectToAction(nameof(MyOrders));
             }
 
-            // Eğer model state geçersizse, ViewBag tekrar set edilmeli!
+            var currentUserId = User.FindFirstValue(ClaimTypes.NameIdentifier);
             ViewBag.Assets = await _context.Assets
-                                    .Where(a => a.OwnerUserId == workOrder.CreatedByUserId)
+                                    .Where(a => a.OwnerUserId == currentUserId)
                                     .ToListAsync();
             return View(workOrder);
         }
 
-
-        // GET: WorkOrder/Index
+        // Yalnızca Manager tüm iş emirlerini görebilir
+        [Authorize(Roles = "Manager")]
         public async Task<IActionResult> Index()
         {
             var workOrders = await _context.WorkOrders
@@ -74,6 +129,8 @@ namespace mwowp.Web.Controllers
             return View(workOrders);
         }
 
+        // Yalnızca Technician kendi görevlerini görebilir
+        [Authorize(Roles = "Technician")]
         public async Task<IActionResult> MyTasks()
         {
             var user = await _userManager.GetUserAsync(User);
@@ -83,6 +140,9 @@ namespace mwowp.Web.Controllers
                                 .ToListAsync();
             return View(tasks);
         }
+
+        // Yalnızca User kendi oluşturduğu emirleri görebilir
+        [Authorize(Roles = "User")]
         public async Task<IActionResult> MyOrders()
         {
             var user = await _userManager.GetUserAsync(User);
@@ -92,7 +152,10 @@ namespace mwowp.Web.Controllers
                                 .ToListAsync();
             return View(tasks);
         }
+
+        // Edit ekranı: Manager düzenleyebilir
         [HttpGet]
+        [Authorize(Roles = "Manager")]
         public async Task<IActionResult> EditOrder(int id)
         {
             var order = await _context.WorkOrders
@@ -100,17 +163,40 @@ namespace mwowp.Web.Controllers
                                 .Include(wo => wo.CreatedByUser)
                                 .Include(wo => wo.AssignedToUser)
                                 .FirstOrDefaultAsync(wo => wo.Id == id);
+            if (order == null)
+                return NotFound();
+
             ViewBag.Assignees = await _userManager.GetUsersInRoleAsync("Technician");
             return View(order);
         }
 
+        // Görev detayını şu kullanıcılar görebilsin:
+        // - Manager
+        // - Atanan teknisyen
+        // - İş emrini oluşturan kullanıcı
+        [Authorize(Roles = "Manager,Technician,User")]
         public async Task<IActionResult> ViewTask(int id)
         {
             var order = await _context.WorkOrders
                                 .Include(wo => wo.Asset)
                                 .Include(wo => wo.CreatedByUser)
                                 .Include(wo => wo.AssignedToUser)
+                                .Include(wo => wo.Attachments)
                                 .FirstOrDefaultAsync(wo => wo.Id == id);
+            if (order == null)
+                return NotFound();
+
+            var currentUser = await _userManager.GetUserAsync(User);
+            var roles = await _userManager.GetRolesAsync(currentUser);
+
+            var canView =
+                roles.Contains("Manager") ||
+                order.AssignedToUserId == currentUser.Id ||
+                order.CreatedByUserId == currentUser.Id;
+
+            if (!canView)
+                return Forbid();
+
             ViewBag.Equipments = await _context.Equipments
                                         .Where(e => e.Status == EquipmentStatus.Available)
                                         .ToListAsync();
@@ -120,7 +206,7 @@ namespace mwowp.Web.Controllers
                                         .ToListAsync();
             ViewBag.WorkOrderEquipments = await _context.WorkOrderEquipments
                                         .Where(woe => woe.WorkOrderId == id)
-                                        .Include(woe=>woe.Equipment)
+                                        .Include(woe => woe.Equipment)
                                         .ToListAsync();
             ViewBag.WorkOrderSpareParts = await _context.WorkOrderSpareParts
                                         .Where(wosp => wosp.WorkOrderId == id)
@@ -129,6 +215,8 @@ namespace mwowp.Web.Controllers
             return View(order);
         }
 
+        // Inspection: Manager denetleyebilir
+        [Authorize(Roles = "Manager")]
         public async Task<IActionResult> Inspection(int id)
         {
             var order = await _context.WorkOrders
@@ -136,12 +224,16 @@ namespace mwowp.Web.Controllers
                                 .Include(wo => wo.CreatedByUser)
                                 .Include(wo => wo.AssignedToUser)
                                 .FirstOrDefaultAsync(wo => wo.Id == id);
+            if (order == null)
+                return NotFound();
+
             ViewBag.Assignees = await _userManager.GetUsersInRoleAsync("Technician");
             return View(order);
         }
 
         [HttpPost]
         [ValidateAntiForgeryToken]
+        [Authorize(Roles = "Manager")]
         public async Task<IActionResult> Inspection(int id, int rating, string comments)
         {
             if (rating < 1 || rating > 5)
@@ -182,13 +274,25 @@ namespace mwowp.Web.Controllers
             return RedirectToAction(nameof(Index));
         }
 
+        // Tamamlama: Manager ve atanan teknisyen tamamlayabilsin
         [HttpPost]
         [ValidateAntiForgeryToken]
+        [Authorize(Roles = "Manager,Technician")]
         public async Task<IActionResult> Complete(int id)
         {
             var workOrder = await _context.WorkOrders.FindAsync(id);
             if (workOrder == null)
                 return NotFound();
+
+            var currentUser = await _userManager.GetUserAsync(User);
+            var roles = await _userManager.GetRolesAsync(currentUser);
+
+            var canComplete =
+                roles.Contains("Manager") ||
+                workOrder.AssignedToUserId == currentUser.Id;
+
+            if (!canComplete)
+                return Forbid();
 
             if (workOrder.Status != WorkOrderStatus.Completed &&
                 workOrder.Status != WorkOrderStatus.Inspected &&
@@ -202,13 +306,28 @@ namespace mwowp.Web.Controllers
             return RedirectToAction(nameof(ViewTask), new { id });
         }
 
+        // Ekipman ekleme: sadece atanan teknisyen veya manager
         [HttpPost]
         [ValidateAntiForgeryToken]
+        [Authorize(Roles = "Manager,Technician")]
         public async Task<IActionResult> AddEquipment(int id, int equipmentId, string? usageNotes)
         {
             var workOrder = await _context.WorkOrders.FindAsync(id);
             if (workOrder == null)
                 return NotFound();
+
+            var currentUser = await _userManager.GetUserAsync(User);
+            var roles = await _userManager.GetRolesAsync(currentUser);
+
+            var canModify =
+                roles.Contains("Manager") ||
+                workOrder.AssignedToUserId == currentUser.Id;
+
+            if (!canModify)
+                return Forbid();
+
+            if (workOrder.Status == WorkOrderStatus.Completed)
+                return BadRequest("Tamamlanan iş emrine ekipman eklenemez.");
 
             var equipment = await _context.Equipments.FirstOrDefaultAsync(e => e.Id == equipmentId);
             if (equipment == null)
@@ -235,8 +354,10 @@ namespace mwowp.Web.Controllers
             return RedirectToAction(nameof(ViewTask), new { id });
         }
 
+        // Parça ekleme: sadece atanan teknisyen veya manager
         [HttpPost]
         [ValidateAntiForgeryToken]
+        [Authorize(Roles = "Manager,Technician")]
         public async Task<IActionResult> AddSparePart(int id, int sparePartId, int quantityUsed)
         {
             if (quantityUsed <= 0)
@@ -245,6 +366,19 @@ namespace mwowp.Web.Controllers
             var workOrder = await _context.WorkOrders.FindAsync(id);
             if (workOrder == null)
                 return NotFound();
+
+            var currentUser = await _userManager.GetUserAsync(User);
+            var roles = await _userManager.GetRolesAsync(currentUser);
+
+            var canModify =
+                roles.Contains("Manager") ||
+                workOrder.AssignedToUserId == currentUser.Id;
+
+            if (!canModify)
+                return Forbid();
+
+            if (workOrder.Status == WorkOrderStatus.Completed)
+                return BadRequest("Tamamlanan iş emrine parça eklenemez.");
 
             var sparePart = await _context.SpareParts.FirstOrDefaultAsync(sp => sp.Id == sparePartId);
             if (sparePart == null)
@@ -265,6 +399,8 @@ namespace mwowp.Web.Controllers
             return RedirectToAction(nameof(ViewTask), new { id });
         }
 
+        // Edit post: Manager
+        [Authorize(Roles = "Manager")]
         public async Task<IActionResult> EditOrder(WorkOrder model)
         {
             var workOrder = await _context.WorkOrders
@@ -277,6 +413,8 @@ namespace mwowp.Web.Controllers
                 return NotFound();
 
             workOrder.Priority = model.Priority;
+            var effectivePriority = workOrder.Priority ?? PriorityLevel.Medium;
+            workOrder.SLAEndTime = SlaDefinitions.GetSlaEndDate(workOrder.CreatedAt, effectivePriority);
             workOrder.AssignedToUserId = model.AssignedToUserId;
             workOrder.Status = WorkOrderStatus.Assigned;
 
@@ -299,6 +437,7 @@ namespace mwowp.Web.Controllers
 
         // GET: /WorkOrder/Assign/5
         [HttpGet]
+        [Authorize(Roles = "Manager")]
         public async Task<IActionResult> Assign(int id)
         {
             var workOrder = await _context.WorkOrders
@@ -309,12 +448,6 @@ namespace mwowp.Web.Controllers
             if (workOrder == null)
                 return NotFound();
 
-            // Sadece manager erişebilir
-            var currentUser = await _userManager.GetUserAsync(User);
-            var roles = await _userManager.GetRolesAsync(currentUser);
-            if (!roles.Contains("Manager"))
-                return Forbid();
-
             // Teknik personel listesi
             ViewBag.Technicians = await _userManager.GetUsersInRoleAsync("Technician");
 
@@ -323,6 +456,7 @@ namespace mwowp.Web.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
+        [Authorize(Roles = "Manager")]
         public async Task<IActionResult> Assign(int id, string assignedToUserId, WorkOrderStatus status)
         {
             var workOrder = await _context.WorkOrders.FindAsync(id);
@@ -335,7 +469,5 @@ namespace mwowp.Web.Controllers
 
             return RedirectToAction(nameof(Index));
         }
-
     }
 }
-

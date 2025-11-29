@@ -4,9 +4,11 @@ using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using mwowp.Web.Data;
 using mwowp.Web.Models;
+using Microsoft.AspNetCore.Authorization;
 
 namespace mwowp.Web.Controllers
 {
+    [Authorize] // Tüm istekler için oturum zorunlu
     public class AssetController : Controller
     {
         private readonly ApplicationDbContext _context;
@@ -19,6 +21,8 @@ namespace mwowp.Web.Controllers
         }
 
         // GET: /Asset/MyAssets
+        // Yalnızca normal kullanıcı kendi varlıklarını görebilir
+        [Authorize(Roles = "User")]
         public async Task<IActionResult> MyAssets()
         {
             var user = await _userManager.GetUserAsync(User);
@@ -29,6 +33,8 @@ namespace mwowp.Web.Controllers
         }
 
         // GET: /Asset/Create
+        // Yalnızca normal kullanıcı varlık oluşturabilir
+        [Authorize(Roles = "User")]
         public IActionResult Create()
         {
             return View();
@@ -37,6 +43,7 @@ namespace mwowp.Web.Controllers
         // POST: /Asset/Create
         [HttpPost]
         [ValidateAntiForgeryToken]
+        [Authorize(Roles = "User")]
         public async Task<IActionResult> Create([Bind("Name,Brand,Model,SerialNumber")] Asset asset)
         {
             ModelState.Remove("OwnerUserId");
@@ -49,7 +56,7 @@ namespace mwowp.Web.Controllers
                 var user = await _userManager.GetUserAsync(User);
                 asset.OwnerUserId = user.Id;
                 asset.OwnerUser = user;
-               
+
                 asset.Status = AssetStatus.OnRepair; // veya default status
                 asset.CreatedAt = DateTime.UtcNow;
 

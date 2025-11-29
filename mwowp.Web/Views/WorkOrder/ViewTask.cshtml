@@ -3,6 +3,7 @@
     ViewData["Title"] = "İş Emri Detayı";
     var availableEquipments = ViewBag.Equipments as IEnumerable<mwowp.Web.Models.Equipment>;
     var availableSpareParts = ViewBag.SpareParts as IEnumerable<mwowp.Web.Models.SparePart>;
+    var isReadOnly = Model.Status == mwowp.Web.Models.WorkOrderStatus.Completed || Model.Status == mwowp.Web.Models.WorkOrderStatus.Canceled || Model.Status == mwowp.Web.Models.WorkOrderStatus.Inspected;
 }
 
 <h2>@Model.Title</h2>
@@ -34,6 +35,23 @@
             <dt class="col-sm-3">Oluşturulma</dt>
             <dd class="col-sm-9">@Model.CreatedAt.ToLocalTime()</dd>
 
+            <dt class="col-sm-3">SLA Bitiş</dt>
+            <dd class="col-sm-9">
+                @if (Model.SLAEndTime.HasValue)
+                {
+                    var localSla = Model.SLAEndTime.Value.ToLocalTime();
+                    var remaining = Model.SLAEndTime.Value - DateTime.UtcNow;
+                    <span>@localSla</span>
+                    <span class="ms-2 badge @(remaining.TotalSeconds <= 0 ? "bg-danger" : "bg-success")">
+                        @(remaining.TotalSeconds <= 0 ? "Süre doldu" : $"Kalan: {(int)Math.Ceiling(remaining.TotalDays)} gün")
+                    </span>
+                }
+                else
+                {
+                    <span class="text-muted">-</span>
+                }
+            </dd>
+
             @if (Model.CompletedAt.HasValue)
             {
                 <dt class="col-sm-3">Tamamlanma</dt>
@@ -42,6 +60,39 @@
         </dl>
     </div>
 </div>
+
+@if (Model.Attachments?.Any() == true)
+{
+    <div class="card mb-3">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <span>Yüklenen Resimler (@Model.Attachments.Count)</span>
+        </div>
+        <div class="card-body">
+            <div class="row g-3">
+                @foreach (var att in Model.Attachments)
+                {
+                    <div class="col-6 col-sm-4 col-md-3">
+                        <div class="border rounded p-1 h-100 d-flex flex-column">
+                            <a href="~/@att.FilePath" target="_blank" title="Tam boyut">
+                                <img src="~/@att.FilePath"
+                                     alt="WorkOrder Image"
+                                     class="img-fluid"
+                                     style="object-fit:cover;aspect-ratio:1/1;" />
+                            </a>
+                            <small class="text-muted mt-1">
+                                @att.CreatedAt.ToLocalTime()
+                            </small>
+                        </div>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+}
+else
+{
+    <div class="alert alert-light py-2">Bu iş emrine ait resim bulunmuyor.</div>
+}
 
 <div class="row">
     <div class="col-md-6">
@@ -80,28 +131,35 @@
                 </table>
             </div>
             <div class="card-footer">
-                <form asp-action="AddEquipment" asp-controller="WorkOrder" method="post" class="row gy-2 gx-2">
-                    @Html.AntiForgeryToken()
-                    <input type="hidden" name="id" value="@Model.Id" />
-                    <div class="col-5">
-                        <select class="form-select form-select-sm" name="equipmentId" required>
-                            <option value="">Ekipman seç...</option>
-                            @if (availableEquipments != null)
-                            {
-                                foreach (var eq in availableEquipments)
+                @if (!isReadOnly)
+                {
+                    <form asp-action="AddEquipment" asp-controller="WorkOrder" method="post" class="row gy-2 gx-2">
+                        @Html.AntiForgeryToken()
+                        <input type="hidden" name="id" value="@Model.Id" />
+                        <div class="col-5">
+                            <select class="form-select form-select-sm" name="equipmentId" required>
+                                <option value="">Ekipman seç...</option>
+                                @if (availableEquipments != null)
                                 {
-                                    <option value="@eq.Id">@eq.Name</option>
+                                    foreach (var eq in availableEquipments)
+                                    {
+                                        <option value="@eq.Id">@eq.Name</option>
+                                    }
                                 }
-                            }
-                        </select>
-                    </div>
-                    <div class="col-5">
-                        <input type="text" name="usageNotes" class="form-control form-control-sm" placeholder="Kullanım notu" />
-                    </div>
-                    <div class="col-2 d-grid">
-                        <button type="submit" class="btn btn-sm btn-primary">Ekle</button>
-                    </div>
-                </form>
+                            </select>
+                        </div>
+                        <div class="col-5">
+                            <input type="text" name="usageNotes" class="form-control form-control-sm" placeholder="Kullanım notu" />
+                        </div>
+                        <div class="col-2 d-grid">
+                            <button type="submit" class="btn btn-sm btn-primary">Ekle</button>
+                        </div>
+                    </form>
+                }
+                else
+                {
+                    <div class="text-muted small">Tamamlanan iş emrinde ekipman eklenemez.</div>
+                }
             </div>
         </div>
     </div>
@@ -136,28 +194,35 @@
                 </table>
             </div>
             <div class="card-footer">
-                <form asp-action="AddSparePart" asp-controller="WorkOrder" method="post" class="row gy-2 gx-2">
-                    @Html.AntiForgeryToken()
-                    <input type="hidden" name="id" value="@Model.Id" />
-                    <div class="col-6">
-                        <select class="form-select form-select-sm" name="sparePartId" required>
-                            <option value="">Parça seç...</option>
-                            @if (availableSpareParts != null)
-                            {
-                                foreach (var part in availableSpareParts)
+                @if (!isReadOnly)
+                {
+                    <form asp-action="AddSparePart" asp-controller="WorkOrder" method="post" class="row gy-2 gx-2">
+                        @Html.AntiForgeryToken()
+                        <input type="hidden" name="id" value="@Model.Id" />
+                        <div class="col-6">
+                            <select class="form-select form-select-sm" name="sparePartId" required>
+                                <option value="">Parça seç...</option>
+                                @if (availableSpareParts != null)
                                 {
-                                    <option value="@part.Id">@part.Name</option>
+                                    foreach (var part in availableSpareParts)
+                                    {
+                                        <option value="@part.Id">@part.Name</option>
+                                    }
                                 }
-                            }
-                        </select>
-                    </div>
-                    <div class="col-4">
-                        <input type="number" min="1" name="quantityUsed" class="form-control form-control-sm" placeholder="Miktar" required />
-                    </div>
-                    <div class="col-2 d-grid">
-                        <button type="submit" class="btn btn-sm btn-primary">Ekle</button>
-                    </div>
-                </form>
+                            </select>
+                        </div>
+                        <div class="col-4">
+                            <input type="number" min="1" name="quantityUsed" class="form-control form-control-sm" placeholder="Miktar" required />
+                        </div>
+                        <div class="col-2 d-grid">
+                            <button type="submit" class="btn btn-sm btn-primary">Ekle</button>
+                        </div>
+                    </form>
+                }
+                else
+                {
+                    <div class="text-muted small">Tamamlanan iş emrinde parça eklenemez.</div>
+                }
             </div>
         </div>
     </div>

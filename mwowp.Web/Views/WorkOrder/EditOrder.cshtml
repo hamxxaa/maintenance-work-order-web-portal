@@ -25,10 +25,10 @@
     <div class="mb-3">
         <label asp-for="Priority" class="form-label"></label>
         <select asp-for="Priority" class="form-select">
-            <option value="Low">Düşük</option>
-            <option value="Medium">Orta</option>
-            <option value="High">Yüksek</option>
-            <option value="Critical">Kritik</option>
+            <option value="@PriorityLevel.Low">Low</option>
+            <option value="@PriorityLevel.Medium">Medium</option>
+            <option value="@PriorityLevel.High">High</option>
+            <option value="@PriorityLevel.Critical">Critical</option>
         </select>
         <span asp-validation-for="Priority" class="text-danger"></span>
     </div>
