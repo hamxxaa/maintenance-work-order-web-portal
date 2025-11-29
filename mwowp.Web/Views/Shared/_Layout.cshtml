@@ -85,6 +85,128 @@
     <script src="~/lib/jquery/dist/jquery.min.js"></script>
     <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
     <script src="~/js/site.js" asp-append-version="true"></script>
+
+    <script src="~/lib/microsoft-signalr/signalr.min.js"></script>
+    @if (SignInManager.IsSignedIn(User))
+    {
+        var currentUser = await UserManager.GetUserAsync(User);
+        var roles = await UserManager.GetRolesAsync(currentUser);
+        if (roles.Contains("Manager"))
+        {
+            <script>
+                (function () {
+                    const connection = new signalR.HubConnectionBuilder()
+                        .withUrl("/hubs/workorders")
+                        .withAutomaticReconnect()
+                        .build();
+
+                    function showAlert(cssClass, html, timeout = 10000) {
+                        const wrapper = document.createElement("div");
+                        wrapper.className = `alert ${cssClass} alert-dismissible fade show position-fixed top-0 end-0 m-3`;
+                        wrapper.style.zIndex = "1060";
+                        wrapper.innerHTML = html + `
+                            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                        `;
+                        document.body.appendChild(wrapper);
+                        setTimeout(() => { wrapper.classList.remove("show"); wrapper.remove(); }, timeout);
+                    }
+
+                    connection.on("WorkOrderCreated", (p) => {
+                        const message = `Yeni iş emri (#${p.id}): "${p.title}" - Varlık: ${p.assetName ?? "-"} - Öncelik: ${p.priority} - Oluşturan: ${p.createdBy}`;
+                        showAlert("alert-info", `<strong>Bildirim:</strong> ${message}`);
+                    });
+
+                    // Tamamlanma bildirimi (tıklanınca inspection sayfasına gider)
+                    connection.on("WorkOrderCompleted", (p) => {
+                        const url = `/WorkOrder/Inspection/${p.id}`;
+                        const message = `İş emri tamamlandı (#${p.id}): "${p.title}" - Varlık: ${p.assetName ?? "-"} - Tamamlayan: ${p.completedBy} - Öncelik: ${p.priority}`;
+                        // Alert'i tıklanabilir hale getir
+                        const html = `<a href="${url}" class="stretched-link text-decoration-none text-reset">
+                            <strong>Denetim Gerekli:</strong> ${message}
+                            <div class="small mt-1">Denetlemek için tıkla</div>
+                        </a>`;
+                        showAlert("alert-success position-relative", html, 15000);
+                    });
+
+                    connection.start().catch(err => console.error("SignalR bağlantı hatası:", err));
+                })();
+            </script>
+        }
+        else if (roles.Contains("Technician"))
+        {
+            <script>
+                (function () {
+                    const connection = new signalR.HubConnectionBuilder()
+                        .withUrl("/hubs/workorders")
+                        .withAutomaticReconnect()
+                        .build();
+
+                    // Mevcut atama bildirimi
+                    connection.on("WorkOrderAssigned", (p) => {
+                        const message = `Size yeni iş emri atandı (#${p.id}): "${p.title}" - Varlık: ${p.assetName ?? "-"} - Öncelik: ${p.priority}`;
+                        const alert = document.createElement("div");
+                        alert.className = "alert alert-warning alert-dismissible fade show position-fixed top-0 end-0 m-3";
+                        alert.style.zIndex = "1060";
+                        alert.innerHTML = `
+                            <strong>Bildirim:</strong> ${message}
+                            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                        `;
+                        document.body.appendChild(alert);
+                        setTimeout(() => { alert.classList.remove("show"); alert.remove(); }, 10000);
+                    });
+
+                    // Denetim tamamlandı bildirimi (detaya gitme linki)
+                    connection.on("WorkOrderInspected", (p) => {
+                        const url = `/WorkOrder/ViewTask/${p.id}`;
+                        const html = `<a href="${url}" class="stretched-link text-decoration-none text-reset">
+                            <strong>Denetim Tamamlandı:</strong> #${p.id} "${p.title}" - Varlık: ${p.assetName ?? "-"} - Puan: ${p.rating}
+                            <div class="small mt-1">Detaya gitmek için tıkla</div>
+                        </a>`;
+                        const wrapper = document.createElement("div");
+                        wrapper.className = "alert alert-success alert-dismissible fade show position-fixed top-0 end-0 m-3 position-relative";
+                        wrapper.style.zIndex = "1060";
+                        wrapper.innerHTML = html + `
+                            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                        `;
+                        document.body.appendChild(wrapper);
+                        setTimeout(() => { wrapper.classList.remove("show"); wrapper.remove(); }, 15000);
+                    });
+
+                    connection.start().catch(err => console.error("SignalR bağlantı hatası:", err));
+                })();
+            </script>
+        }
+        else
+        {
+            <!-- Normal User (iş emri oluşturan) için dinleme -->
+            <script>
+                (function () {
+                    const connection = new signalR.HubConnectionBuilder()
+                        .withUrl("/hubs/workorders")
+                        .withAutomaticReconnect()
+                        .build();
+
+                    connection.on("WorkOrderInspected", (p) => {
+                        const url = `/WorkOrder/ViewTask/${p.id}`;
+                        const html = `<a href="${url}" class="stretched-link text-decoration-none text-reset">
+                            <strong>İş Emri Denetlendi:</strong> #${p.id} "${p.title}" - Varlık: ${p.assetName ?? "-"} - Puan: ${p.rating}
+                            <div class="small mt-1">Detaya gitmek için tıkla</div>
+                        </a>`;
+                        const wrapper = document.createElement("div");
+                        wrapper.className = "alert alert-primary alert-dismissible fade show position-fixed top-0 end-0 m-3 position-relative";
+                        wrapper.style.zIndex = "1060";
+                        wrapper.innerHTML = html + `
+                            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                        `;
+                        document.body.appendChild(wrapper);
+                        setTimeout(() => { wrapper.classList.remove("show"); wrapper.remove(); }, 15000);
+                    });
+
+                    connection.start().catch(err => console.error("SignalR bağlantı hatası:", err));
+                })();
+            </script>
+        }
+    }
     @await RenderSectionAsync("Scripts", required: false)
 </body>
 </html>

@@ -1,5 +1,8 @@
+using Microsoft.AspNetCore.Http.HttpResults;
+using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using mwowp.Web.Data;
+using mwowp.Web.Hubs;
 using mwowp.Web.Models;
 
 namespace mwowp.Web.Services
@@ -8,11 +11,14 @@ namespace mwowp.Web.Services
     {
         private readonly ApplicationDbContext _db;
         private readonly IWorkOrderHistoryService _history;
+        private readonly IHubContext<WorkOrderHub> _hubContext;
 
-        public WorkOrderService(ApplicationDbContext db, IWorkOrderHistoryService history)
+
+        public WorkOrderService(ApplicationDbContext db, IWorkOrderHistoryService history, IHubContext<WorkOrderHub> hubContext)
         {
             _db = db;
             _history = history;
+            _hubContext = hubContext;
         }
 
         public async Task<WorkOrder> CreateAsync(WorkOrder input, string userId)
@@ -32,6 +38,17 @@ namespace mwowp.Web.Services
             _db.WorkOrders.Add(input);
             await _db.SaveChangesAsync();
             await _history.LogCreatedAsync(input, userId);
+            await _hubContext.Clients.Group("Managers").SendAsync(
+                "WorkOrderCreated",
+                new
+                {
+                    id = input.Id,
+                    title = input.Title,
+                    assetName = input.Asset?.Name,
+                    createdBy = input.CreatedByUser?.FullName ?? input.CreatedByUserId,
+                    priority = input.Priority?.ToString() ?? "-",
+                    createdAt = input.CreatedAt.ToLocalTime().ToString("g")
+                });
             return input;
         }
 
@@ -51,6 +68,18 @@ namespace mwowp.Web.Services
             if (oldAssignee != assignedToUserId)
             {
                 await _history.LogAssignmentAsync(wo, manager, oldAssignee, assignedToUserId);
+                await _hubContext.Clients.User(assignedToUserId).SendAsync(
+                    "WorkOrderAssigned",
+                    new
+                    {
+                        id = wo.Id,
+                        title = wo.Title,
+                        assetName = wo.Asset?.Name,
+                        assignedBy = manager,
+                        priority = wo.Priority?.ToString() ?? "-",
+                        status = wo.Status.ToString(),
+                        createdBy = wo.CreatedByUser?.FullName ?? wo.CreatedByUserId
+                    });
             }
             if (oldStatus != status)
             {
@@ -94,6 +123,18 @@ namespace mwowp.Web.Services
 
             await _db.SaveChangesAsync();
             await _history.LogCompletedAsync(workOrderId, currentUserId);
+
+            await _hubContext.Clients.User(wo.AssignedById).SendAsync(
+                "WorkOrderCompleted",
+                new
+                {
+                    id = wo.Id,
+                    title = wo.Title,
+                    assetName = wo.Asset?.Name,
+                    completedBy = wo.AssignedToUser?.FullName ?? currentUserId,
+                    priority = wo.Priority?.ToString() ?? "-",
+                    completedAt = wo.CompletedAt?.ToLocalTime().ToString("g")
+                });
         }
 
         public async Task<Inspection> InspectAsync(int workOrderId, string inspectorId, int rating, string comments)
@@ -119,6 +160,27 @@ namespace mwowp.Web.Services
             _db.Inspections.Add(inspection);
             await _db.SaveChangesAsync();
             await _history.LogInspectionAsync(workOrderId, inspectorId);
+
+            var recipientIds = new List<string>();
+            if (!string.IsNullOrWhiteSpace(order.AssignedToUserId))
+                recipientIds.Add(order.AssignedToUserId);
+            if (!string.IsNullOrWhiteSpace(order.CreatedByUserId))
+                recipientIds.Add(order.CreatedByUserId);
+
+            if (recipientIds.Count > 0)
+            {
+                await _hubContext.Clients.Users(recipientIds).SendAsync(
+                    "WorkOrderInspected",
+                    new
+                    {
+                        id = order.Id,
+                        title = order.Title,
+                        assetName = order.Asset?.Name,
+                        inspectedBy = inspection.InspectorId,
+                        rating,
+                        comments
+                    });
+            }
             return inspection;
         }
         public async Task UpdateAssignmentAndPriorityAsync(int workOrderId, string? assignedToUserId, PriorityLevel? priority, string managerUserId)
@@ -150,6 +212,18 @@ namespace mwowp.Web.Services
             if (oldAssignee != assignedToUserId)
             {
                 await _history.LogAssignmentAsync(workOrder, managerUserId, oldAssignee, assignedToUserId);
+                await _hubContext.Clients.User(assignedToUserId).SendAsync(
+                    "WorkOrderAssigned",
+                    new
+                    {
+                        id = workOrder.Id,
+                        title = workOrder.Title,
+                        assetName = workOrder.Asset?.Name,
+                        assignedBy = managerUserId,
+                        priority = workOrder.Priority?.ToString() ?? "-",
+                        status = workOrder.Status.ToString(),
+                        createdBy = workOrder.CreatedByUser?.FullName ?? workOrder.CreatedByUserId
+                    });
             }
             if (oldPriority != priority)
             {

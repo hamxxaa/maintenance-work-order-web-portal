@@ -5,6 +5,7 @@
     var availableSpareParts = ViewBag.SpareParts as IEnumerable<mwowp.Web.Models.SparePart>;
     var isReadOnly = Model.Status == mwowp.Web.Models.WorkOrderStatus.Completed || Model.Status == mwowp.Web.Models.WorkOrderStatus.Canceled || Model.Status == mwowp.Web.Models.WorkOrderStatus.Inspected;
     var isTechnician = User.IsInRole("Technician");
+    var isManager = User.IsInRole("Manager");
 }
 
 <h2>@Model.Title</h2>
@@ -290,10 +291,13 @@ else
     {
         <a asp-action="MyTasks" asp-controller="WorkOrder" class="btn btn-secondary btn-sm">Listeye Dön</a>            
     }
-    else
+    else if(isManager)
     {
         <a asp-action="Index" asp-controller="WorkOrder" class="btn btn-secondary btn-sm">Listeye Dön</a>
-
+    }
+    else
+    {
+        <a asp-action="MyOrders" asp-controller="WorkOrder" class="btn btn-secondary btn-sm">Listeye Dön</a>
     }
 
     @if (Model.Status != mwowp.Web.Models.WorkOrderStatus.Completed

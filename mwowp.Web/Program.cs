@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using mwowp.Web.Data;
 using mwowp.Web.Models;
 using mwowp.Web.Services;
+using mwowp.Web.Hubs;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -81,7 +82,7 @@ app.MapRazorPages();
 // =========================
 // 8. SignalR Hubs
 // =========================
-//app.MapHub<WorkOrderHub>("/hubs/workorders");
+app.MapHub<WorkOrderHub>("/hubs/workorders");
 
 using (var scope = app.Services.CreateScope())
 {
