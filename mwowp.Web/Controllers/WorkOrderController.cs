@@ -39,7 +39,6 @@ namespace mwowp.Web.Controllers
             _sparePartService = sparePartService;
         }
 
-        // Sadece normal kullanıcılar iş emri oluşturabilir
         [Authorize(Roles = "User")]
         public async Task<IActionResult> Create()
         {
@@ -76,7 +75,6 @@ namespace mwowp.Web.Controllers
             return RedirectToAction(nameof(MyOrders));
         }
 
-        // Yalnızca Manager tüm iş emirlerini görebilir
         [Authorize(Roles = "Manager")]
         public async Task<IActionResult> Index()
         {
@@ -88,7 +86,6 @@ namespace mwowp.Web.Controllers
             return View(workOrders);
         }
 
-        // Yalnızca Technician kendi görevlerini görebilir
         [Authorize(Roles = "Technician")]
         public async Task<IActionResult> MyTasks()
         {
@@ -100,7 +97,6 @@ namespace mwowp.Web.Controllers
             return View(tasks);
         }
 
-        // Yalnızca User kendi oluşturduğu emirleri görebilir
         [Authorize(Roles = "User")]
         public async Task<IActionResult> MyOrders()
         {
@@ -112,7 +108,6 @@ namespace mwowp.Web.Controllers
             return View(tasks);
         }
 
-        // Edit ekranı: Manager düzenleyebilir (GET)
         [HttpGet]
         [Authorize(Roles = "Manager")]
         public async Task<IActionResult> EditOrder(int id)
@@ -128,14 +123,13 @@ namespace mwowp.Web.Controllers
             return View(order);
         }
 
-        // Edit: sadece atama güncelle (priority sabit kalır)
         [HttpPost]
         [ValidateAntiForgeryToken]
         [Authorize(Roles = "Manager")]
         public async Task<IActionResult> EditOrder([Bind("Id,AssignedToUserId")] WorkOrder input)
         {
             if (input.Id <= 0)
-                return BadRequest("Geçersiz iş emri kimliği.");
+                return BadRequest("Invalid work order id.");
 
             var existing = await _context.WorkOrders
                 .Include(wo => wo.Asset)
@@ -146,8 +140,6 @@ namespace mwowp.Web.Controllers
             if (existing == null) return NotFound();
 
             var managerUserId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-
-            // Boş string'i null olarak kabul et (atamayı kaldırma)
             var newAssignee = string.IsNullOrWhiteSpace(input.AssignedToUserId) ? null : input.AssignedToUserId;
 
             try
@@ -155,7 +147,7 @@ namespace mwowp.Web.Controllers
                 await _workOrderService.UpdateAssignmentAndPriorityAsync(
                     existing.Id,
                     newAssignee,
-                    existing.Priority, // Priority değişmeden korunuyor
+                    existing.Priority,
                     managerUserId);
 
                 return RedirectToAction(nameof(Index));
@@ -166,10 +158,6 @@ namespace mwowp.Web.Controllers
             }
         }
 
-        // Görev detayını şu kullanıcılar görebilsin:
-        // - Manager
-        // - Atanan teknisyen
-        // - İş emrini oluşturan kullanıcı
         [Authorize(Roles = "Manager,Technician,User")]
         public async Task<IActionResult> ViewTask(int id)
         {
@@ -179,7 +167,7 @@ namespace mwowp.Web.Controllers
                 .Include(wo => wo.AssignedToUser)
                 .Include(wo => wo.Attachments)
                 .Include(wo => wo.History)
-                 .ThenInclude(h => h.ChangedByUser)
+                    .ThenInclude(h => h.ChangedByUser)
                 .FirstOrDefaultAsync(wo => wo.Id == id);
             if (order == null) return NotFound();
 
@@ -204,11 +192,9 @@ namespace mwowp.Web.Controllers
                 .Include(wosp => wosp.SparePart)
                 .ToListAsync();
 
-
             return View(order);
         }
 
-        // Inspection: Manager denetleyebilir
         [Authorize(Roles = "Manager")]
         public async Task<IActionResult> Inspection(int id)
         {
@@ -229,7 +215,7 @@ namespace mwowp.Web.Controllers
         public async Task<IActionResult> Inspection(int id, int rating, string comments)
         {
             if (rating < 1 || rating > 5)
-                ModelState.AddModelError(nameof(rating), "Puan 1 ile 5 arasında olmalıdır.");
+                ModelState.AddModelError(nameof(rating), "Rating must be between 1 and 5.");
 
             var order = await _context.WorkOrders
                 .Include(wo => wo.Asset)
@@ -250,7 +236,6 @@ namespace mwowp.Web.Controllers
             return RedirectToAction(nameof(Index));
         }
 
-        // Tamamlama: Manager ve atanan teknisyen tamamlayabilsin
         [HttpPost]
         [ValidateAntiForgeryToken]
         [Authorize(Roles = "Manager,Technician")]
@@ -258,7 +243,7 @@ namespace mwowp.Web.Controllers
         {
             if (string.IsNullOrWhiteSpace(repairReport))
             {
-                ModelState.AddModelError(nameof(repairReport), "Onarım raporu zorunludur.");
+                ModelState.AddModelError(nameof(repairReport), "Repair report is required.");
                 return await ViewTask(id);
             }
 
@@ -268,7 +253,6 @@ namespace mwowp.Web.Controllers
             return RedirectToAction(nameof(ViewTask), new { id });
         }
 
-        // Ekipman ekleme: sadece atanan teknisyen veya manager
         [HttpPost]
         [ValidateAntiForgeryToken]
         [Authorize(Roles = "Manager,Technician")]
@@ -296,7 +280,6 @@ namespace mwowp.Web.Controllers
             }
         }
 
-        // Parça ekleme: sadece atanan teknisyen veya manager
         [HttpPost]
         [ValidateAntiForgeryToken]
         [Authorize(Roles = "Manager,Technician")]
@@ -312,7 +295,7 @@ namespace mwowp.Web.Controllers
             }
             catch (ArgumentOutOfRangeException)
             {
-                return BadRequest("Miktar pozitif olmalı.");
+                return BadRequest("Quantity must be positive.");
             }
             catch (UnauthorizedAccessException)
             {
@@ -334,8 +317,6 @@ namespace mwowp.Web.Controllers
         public async Task<IActionResult> ApproveSparePart(int id, int workOrderSparePartId)
         {
             var currentUser = await _userManager.GetUserAsync(User);
-
-            // Yetki kontrolü: bu iş emri bu kullanıcıya ait mi?
             var order = await _context.WorkOrders.FirstOrDefaultAsync(wo => wo.Id == id);
             if (order == null) return NotFound();
             if (order.CreatedByUserId != currentUser.Id) return Forbid();
@@ -355,21 +336,18 @@ namespace mwowp.Web.Controllers
             }
         }
 
-        // Kullanıcı reddi: reddederse iş emri iptal edilir
         [HttpPost]
         [ValidateAntiForgeryToken]
         [Authorize(Roles = "User")]
         public async Task<IActionResult> RejectSparePart(int id, int workOrderSparePartId)
         {
             var currentUser = await _userManager.GetUserAsync(User);
-
             var order = await _context.WorkOrders.FirstOrDefaultAsync(wo => wo.Id == id);
             if (order == null) return NotFound();
             if (order.CreatedByUserId != currentUser.Id) return Forbid();
 
             try
             {
-                // İlgili pending kaydı reddedilir ve iş emri iptal edilir
                 await _sparePartService.RejectSparePartAsync(workOrderSparePartId, currentUser.Id);
                 await _workOrderService.CancelWorkOrderAsync(id, currentUser.Id);
                 return RedirectToAction(nameof(MyOrders));
@@ -399,7 +377,7 @@ namespace mwowp.Web.Controllers
 
             if (workOrder.Status == WorkOrderStatus.Canceled)
             {
-                return BadRequest("İptal edilen iş emri için fatura oluşturulamaz.");
+                return BadRequest("Invoice cannot be generated for a canceled work order.");
             }
 
             var invoice = await _context.Invoices
@@ -408,7 +386,7 @@ namespace mwowp.Web.Controllers
 
             if (invoice == null)
             {
-                return NotFound("Bu iş emri için kayıtlı fatura metni bulunamadı.");
+                return NotFound("No invoice text was found for this work order.");
             }
 
             var fileName = $"WO-{workOrder.Id:D6}-Invoice.txt";

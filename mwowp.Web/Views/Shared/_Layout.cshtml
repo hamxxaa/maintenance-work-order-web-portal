@@ -132,21 +132,21 @@
                     }
 
                     connection.on("WorkOrderCreated", (p) => {
-                        const message = `Yeni iş emri (#${p.id}): "${p.title}" - Varlık: ${p.assetName ?? "-"} - Öncelik: ${p.priority} - Oluşturan: ${p.createdBy}`;
-                        showAlert("alert-info", `<strong>Bildirim:</strong> ${message}`);
+                        const message = `New work order (#${p.id}): "${p.title}" - Asset: ${p.assetName ?? "-"} - Priority: ${p.priority} - Created by: ${p.createdBy}`;
+                        showAlert("alert-info", `<strong>Notification:</strong> ${message}`);
                     });
 
                     connection.on("WorkOrderCompleted", (p) => {
                         const url = `/WorkOrder/Inspection/${p.id}`;
-                        const message = `İş emri tamamlandı (#${p.id}): "${p.title}" - Varlık: ${p.assetName ?? "-"} - Tamamlayan: ${p.completedBy} - Öncelik: ${p.priority}`;
+                        const message = `Work order completed (#${p.id}): "${p.title}" - Asset: ${p.assetName ?? "-"} - Completed by: ${p.completedBy} - Priority: ${p.priority}`;
                         const html = `<a href="${url}" class="stretched-link text-decoration-none text-reset">
-                            <strong>Denetim Gerekli:</strong> ${message}
-                            <div class="small mt-1">Denetlemek için tıkla</div>
+                            <strong>Inspection Required:</strong> ${message}
+                            <div class="small mt-1">Click to inspect</div>
                         </a>`;
                         showAlert("alert-success position-relative", html, 15000);
                     });
 
-                    connection.start().catch(err => console.error("SignalR bağlantı hatası:", err));
+                    connection.start().catch(err => console.error("SignalR connection error:", err));
                 })();
             </script>
         }
@@ -160,12 +160,12 @@
                         .build();
 
                     connection.on("WorkOrderAssigned", (p) => {
-                        const message = `Size yeni iş emri atandı (#${p.id}): "${p.title}" - Varlık: ${p.assetName ?? "-"} - Öncelik: ${p.priority}`;
+                        const message = `A new work order was assigned to you (#${p.id}): "${p.title}" - Asset: ${p.assetName ?? "-"} - Priority: ${p.priority}`;
                         const alert = document.createElement("div");
                         alert.className = "alert alert-warning alert-dismissible fade show position-fixed top-0 end-0 m-3";
                         alert.style.zIndex = "1060";
                         alert.innerHTML = `
-                            <strong>Bildirim:</strong> ${message}
+                            <strong>Notification:</strong> ${message}
                             <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
                         `;
                         document.body.appendChild(alert);
@@ -175,8 +175,8 @@
                     connection.on("WorkOrderInspected", (p) => {
                         const url = `/WorkOrder/ViewTask/${p.id}`;
                         const html = `<a href="${url}" class="stretched-link text-decoration-none text-reset">
-                            <strong>Denetim Tamamlandı:</strong> #${p.id} "${p.title}" - Varlık: ${p.assetName ?? "-"} - Puan: ${p.rating}
-                            <div class="small mt-1">Detaya gitmek için tıkla</div>
+                            <strong>Inspection Completed:</strong> #${p.id} "${p.title}" - Asset: ${p.assetName ?? "-"} - Rating: ${p.rating}
+                            <div class="small mt-1">Click to view details</div>
                         </a>`;
                         const wrapper = document.createElement("div");
                         wrapper.className = "alert alert-success alert-dismissible fade show position-fixed top-0 end-0 m-3 position-relative";
@@ -188,13 +188,13 @@
                         setTimeout(() => { wrapper.classList.remove("show"); wrapper.remove(); }, 15000);
                     });
 
-                    connection.start().catch(err => console.error("SignalR bağlantı hatası:", err));
+                    connection.start().catch(err => console.error("SignalR connection error:", err));
                 })();
             </script>
         }
         else
         {
-            <!-- Normal User (iş emri oluşturan) için dinleme -->
+            <!-- Normal User listener -->
             <script>
                 (function () {
                     const connection = new signalR.HubConnectionBuilder()
@@ -205,8 +205,8 @@
                     connection.on("WorkOrderInspected", (p) => {
                         const url = `/WorkOrder/ViewTask/${p.id}`;
                         const html = `<a href="${url}" class="stretched-link text-decoration-none text-reset">
-                            <strong>İş Emri Denetlendi:</strong> #${p.id} "${p.title}" - Varlık: ${p.assetName ?? "-"} - Puan: ${p.rating}
-                            <div class="small mt-1">Detaya gitmek için tıkla</div>
+                            <strong>Work Order Inspected:</strong> #${p.id} "${p.title}" - Asset: ${p.assetName ?? "-"} - Rating: ${p.rating}
+                            <div class="small mt-1">Click to view details</div>
                         </a>`;
                         const wrapper = document.createElement("div");
                         wrapper.className = "alert alert-primary alert-dismissible fade show position-fixed top-0 end-0 m-3 position-relative";
@@ -218,7 +218,7 @@
                         setTimeout(() => { wrapper.classList.remove("show"); wrapper.remove(); }, 15000);
                     });
 
-                    connection.start().catch(err => console.error("SignalR bağlantı hatası:", err));
+                    connection.start().catch(err => console.error("SignalR connection error:", err));
                 })();
             </script>
         }

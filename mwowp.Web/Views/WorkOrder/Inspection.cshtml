@@ -5,7 +5,6 @@
 }
 
 <div class="container py-3">
-    <!-- Page header -->
     <div class="mb-3">
         <h1 class="h4 mb-1">Work Order Inspection</h1>
         <p class="text-muted small mb-0">
@@ -13,7 +12,6 @@
         </p>
     </div>
 
-    <!-- Work order summary -->
     <div class="card mb-3 shadow-sm">
         <div class="card-body">
             <h5 class="card-title mb-1">@Model.Title</h5>
@@ -35,7 +33,7 @@
                         data-bs-toggle="collapse"
                         data-bs-target="#repairReportSection"
                         aria-expanded="true">
-                    Göster / Gizle
+                    Show / Hide
                 </button>
             </div>
             <div id="repairReportSection" class="collapse show">
@@ -53,7 +51,6 @@
         </div>
     </div>
 
-    <!-- Inspection form -->
     <div class="card shadow-sm">
         <div class="card-body">
             <form asp-action="Inspection" asp-route-id="@Model.Id" method="post" novalidate>
@@ -61,7 +58,6 @@
 
                 <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
 
-                <!-- Rating -->
                 <div class="mb-3">
                     <label class="form-label">Rating (1–5)</label>
                     <div>
@@ -84,7 +80,6 @@
                     </small>
                 </div>
 
-                <!-- Comments -->
                 <div class="mb-3">
                     <label for="comments" class="form-label">Comments</label>
                     <textarea id="comments"

@@ -55,21 +55,21 @@
 
                         <!-- Status -->
                         <div class="mb-3">
-                            <label class="form-label">Durum</label>
+                            <label class="form-label">Status</label>
                             <input class="form-control" value="@Model.Status" disabled />
                         </div>
 
                         <!-- Created By -->
                         <div class="mb-3">
-                            <label class="form-label">Oluşturan</label>
+                            <label class="form-label">Created By</label>
                             <input class="form-control" value="@Model.CreatedByUser?.FullName" disabled />
                         </div>
 
                         <!-- Assigned technician -->
                         <div class="mb-3">
-                            <label asp-for="AssignedToUserId" class="form-label">Atanan Kişi</label>
+                            <label asp-for="AssignedToUserId" class="form-label">Assigned To</label>
                             <select asp-for="AssignedToUserId" class="form-select">
-                                <option value="">(Seçilmedi)</option>
+                                <option value="">(Not Selected)</option>
                                 @if (ViewBag.Assignees is IEnumerable<ApplicationUser> users)
                                 {
                                     foreach (var u in users)
@@ -90,10 +90,10 @@
 
                 <div class="d-flex justify-content-between align-items-center mt-3">
                     <a asp-controller="WorkOrder" asp-action="Index" class="btn btn-outline-secondary btn-sm">
-                        İptal
+                        Cancel
                     </a>
                     <button type="submit" class="btn btn-primary btn-sm">
-                        Kaydet
+                        Save
                     </button>
                 </div>
             </form>
