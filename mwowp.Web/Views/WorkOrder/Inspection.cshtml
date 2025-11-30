@@ -1,42 +1,115 @@
 ﻿@model mwowp.Web.Models.WorkOrder
+
 @{
+    ViewData["Title"] = "Work Order Inspection";
+}
 
-<h2>İş Emri İncelemesi</h2>
-
-<div class="card mb-3">
-    <div class="card-body">
-        <h5 class="card-title">@Model.Title</h5>
-        <p class="card-text">@Model.Description</p>
-        <p class="card-text">
-            <strong>Varlık:</strong> @Model.Asset?.Name
+<div class="container py-3">
+    <!-- Page header -->
+    <div class="mb-3">
+        <h1 class="h4 mb-1">Work Order Inspection</h1>
+        <p class="text-muted small mb-0">
+            Review the completed work and record your rating and feedback.
         </p>
     </div>
-</div>
 
-<form asp-action="Inspection" asp-route-id="@Model.Id" method="post">
-    @Html.AntiForgeryToken()
-    <div asp-validation-summary="ModelOnly" class="text-danger"></div>
-
-    <div class="mb-3">
-        <label class="form-label">Puan (1-5)</label>
-        <div>
-            @for (var i = 1; i <= 5; i++)
-            {
-                <div class="form-check form-check-inline">
-                    <input class="form-check-input" type="radio" name="rating" id="rating-@i" value="@i" required />
-                    <label class="form-check-label" for="rating-@i">@i</label>
-                </div>
-            }
+    <!-- Work order summary -->
+    <div class="card mb-3 shadow-sm">
+        <div class="card-body">
+            <h5 class="card-title mb-1">@Model.Title</h5>
+            <p class="card-text mb-2">@Model.Description</p>
+            <p class="card-text mb-0 small text-muted">
+                <strong>Asset:</strong> @Model.Asset?.Name
+                <span class="ms-3"><strong>Status:</strong> @Model.Status</span>
+                @if (Model.CompletedAt.HasValue)
+                {
+                    <span class="ms-3"><strong>Completed At:</strong> @Model.CompletedAt.Value.ToLocalTime()</span>
+                }
+            </p>
         </div>
-        <span class="text-danger" data-valmsg-for="rating" data-valmsg-replace="true"></span>
+        <div class="card-footer bg-white">
+            <div class="mb-2 d-flex justify-content-between align-items-center">
+                <span class="fw-semibold small text-uppercase text-muted">Repair Report</span>
+                <button type="button"
+                        class="btn btn-sm btn-outline-secondary"
+                        data-bs-toggle="collapse"
+                        data-bs-target="#repairReportSection"
+                        aria-expanded="true">
+                    Göster / Gizle
+                </button>
+            </div>
+            <div id="repairReportSection" class="collapse show">
+                @if (!string.IsNullOrWhiteSpace(Model.RepairReport))
+                {
+                    <pre class="border rounded p-2 bg-light mb-0 small" style="white-space: pre-wrap;">@Model.RepairReport</pre>
+                }
+                else
+                {
+                    <div class="alert alert-light border small mb-0 py-2">
+                        There is no report submitted for this work order.
+                    </div>
+                }
+            </div>
+        </div>
     </div>
 
-    <div class="mb-3">
-        <label for="comments" class="form-label">Yorum</label>
-        <textarea id="comments" name="comments" class="form-control" rows="4" maxlength="1000" placeholder="Yapılan iş ve kalite hakkında görüşünüz..."></textarea>
-    </div>
+    <!-- Inspection form -->
+    <div class="card shadow-sm">
+        <div class="card-body">
+            <form asp-action="Inspection" asp-route-id="@Model.Id" method="post" novalidate>
+                @Html.AntiForgeryToken()
 
-    <button type="submit" class="btn btn-primary">Kaydet</button>
-    <a asp-action="Index" class="btn btn-secondary">İptal</a>
-</form>
-}
+                <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
+
+                <!-- Rating -->
+                <div class="mb-3">
+                    <label class="form-label">Rating (1–5)</label>
+                    <div>
+                        @for (var i = 1; i <= 5; i++)
+                        {
+                            <div class="form-check form-check-inline">
+                                <input class="form-check-input"
+                                       type="radio"
+                                       name="rating"
+                                       id="rating-@i"
+                                       value="@i"
+                                       required />
+                                <label class="form-check-label" for="rating-@i">@i</label>
+                            </div>
+                        }
+                    </div>
+                    <span class="text-danger small" data-valmsg-for="rating" data-valmsg-replace="true"></span>
+                    <small class="form-text text-muted">
+                        1 = very poor, 5 = excellent.
+                    </small>
+                </div>
+
+                <!-- Comments -->
+                <div class="mb-3">
+                    <label for="comments" class="form-label">Comments</label>
+                    <textarea id="comments"
+                              name="comments"
+                              class="form-control"
+                              rows="4"
+                              maxlength="1000"
+                              placeholder="Share your feedback on the quality of the work and the overall outcome..."></textarea>
+                    <small class="form-text text-muted">
+                        Optional, maximum 1000 characters.
+                    </small>
+                </div>
+
+                <div class="d-flex justify-content-between align-items-center mt-3">
+                    <a asp-action="Index" class="btn btn-outline-secondary btn-sm">
+                        Cancel
+                    </a>
+                    <button type="submit" class="btn btn-primary btn-sm">
+                        Save Inspection
+                    </button>
+                </div>
+            </form>
+        </div>
+        <div class="card-footer bg-light small text-muted">
+            Your inspection will be recorded as part of the work order history.
+        </div>
+    </div>
+</div>

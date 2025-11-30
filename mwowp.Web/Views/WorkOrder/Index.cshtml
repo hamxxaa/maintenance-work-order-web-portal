@@ -1,62 +1,100 @@
 ﻿@model IEnumerable<mwowp.Web.Models.WorkOrder>
 
-<h2>Work Orders</h2>
+@{
+    ViewData["Title"] = "Work Orders";
+}
 
-<table class="table">
-    <thead>
-        <tr>
-            <th>Asset</th>
-            <th>Title</th>
-            <th>Status</th>
-            <th>Priority</th>
-            <th>Assigned To</th>
-            <th>Created By</th>
-        </tr>
-    </thead>
-    <tbody>
-        @foreach (var wo in Model)
-        {
-            <tr>
-                <td>@wo.Asset.Name</td>
-                <td>@wo.Title</td>
-                <td>@wo.Status</td>
-                <td>@wo.Priority</td>
-                <td>@wo.AssignedToUser?.FullName</td>
-                <td>@wo.CreatedByUser?.FullName</td>
-                <td>
-                    <a asp-controller="WorkOrder"
-                       asp-action="ViewTask"
-                       asp-route-id="@wo.Id"
-                       class="btn btn-sm btn-secondary"
-                       target="_blank"
-                       rel="noopener">
-                        View
-                    </a>
+<div class="container py-3">
+    <!-- Page header -->
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <div>
+            <h1 class="h4 mb-1">All Work Orders</h1>
+            <p class="text-muted small mb-0">
+                Overview of all work orders in the system. Use the actions on each row to view, assign, or inspect.
+            </p>
+        </div>
+    </div>
 
-                    <a asp-controller="WorkOrder"
-                       asp-action="EditOrder"
-                       asp-route-id="@wo.Id"
-                       class="btn btn-sm btn-primary"
-                       target="_blank"
-                       rel="noopener">
-                       Edit
-                    </a>
+    @if (Model == null || !Model.Any())
+    {
+        <div class="card border-0 bg-light">
+            <div class="card-body text-center py-4">
+                <h2 class="h6 mb-2">No work orders yet</h2>
+                <p class="text-muted small mb-0">
+                    Once users start submitting work orders, they will appear here.
+                </p>
+            </div>
+        </div>
+    }
+    else
+    {
+        <div class="card shadow-sm">
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0 align-middle">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Asset</th>
+                                <th>Title</th>
+                                <th>Status</th>
+                                <th>Priority</th>
+                                <th>Assigned To</th>
+                                <th>Created By</th>
+                                <th style="width: 230px;">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var wo in Model)
+                            {
+                                <tr>
+                                    <td>@wo.Asset?.Name</td>
+                                    <td>@wo.Title</td>
+                                    <td>@wo.Status</td>
+                                    <td>@wo.Priority</td>
+                                    <td>@wo.AssignedToUser?.FullName</td>
+                                    <td>@wo.CreatedByUser?.FullName</td>
+                                    <td>
+                                        <div class="d-flex flex-wrap gap-1">
+                                            <a asp-controller="WorkOrder"
+                                               asp-action="ViewTask"
+                                               asp-route-id="@wo.Id"
+                                               class="btn btn-sm btn-outline-secondary"
+                                               target="_blank"
+                                               rel="noopener">
+                                                View
+                                            </a>
 
-                    @if (wo.Status == WorkOrderStatus.Completed)
-                    {
-                        <a asp-controller="WorkOrder"
-                        asp-action="Inspection"
-                        asp-route-id="@wo.Id"
-                        class="btn btn-sm btn-warning"
-                        target="_blank"
-                        rel="noopener">
-                            Inspection
-                        </a>                
-                    }
-                </td>
+                                            <a asp-controller="WorkOrder"
+                                               asp-action="EditOrder"
+                                               asp-route-id="@wo.Id"
+                                               class="btn btn-sm btn-primary"
+                                               target="_blank"
+                                               rel="noopener">
+                                                Edit
+                                            </a>
 
-
-            </tr>
-        }
-    </tbody>
-</table>
+                                            @if (wo.Status == WorkOrderStatus.Completed)
+                                            {
+                                                <a asp-controller="WorkOrder"
+                                                   asp-action="Inspection"
+                                                   asp-route-id="@wo.Id"
+                                                   class="btn btn-sm btn-warning"
+                                                   target="_blank"
+                                                   rel="noopener">
+                                                    Inspection
+                                                </a>
+                                            }
+                                        </div>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="card-footer bg-light small text-muted">
+                Use “View” to see full details and history, “Edit” to assign technicians, and “Inspection” to finalize completed work orders.
+            </div>
+        </div>
+    }
+</div>

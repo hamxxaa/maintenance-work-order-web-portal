@@ -154,6 +154,10 @@ namespace mwowp.Web.Areas.Identity.Pages.Account
             {
                 var user = CreateUser();
 
+                // FullName zorunlu: saðlayýcýdan isim al, yoksa email kullan
+                var fullName = info.Principal.FindFirstValue(ClaimTypes.Name) ?? Input.Email;
+                user.FullName = fullName;
+
                 await _userStore.SetUserNameAsync(user, Input.Email, CancellationToken.None);
                 await _emailStore.SetEmailAsync(user, Input.Email, CancellationToken.None);
 
@@ -163,6 +167,20 @@ namespace mwowp.Web.Areas.Identity.Pages.Account
                     result = await _userManager.AddLoginAsync(user, info);
                     if (result.Succeeded)
                     {
+                        // User rolünü ata
+                        var roleResult = await _userManager.AddToRoleAsync(user, "User");
+                        if (!roleResult.Succeeded)
+                        {
+                            foreach (var error in roleResult.Errors)
+                                ModelState.AddModelError(string.Empty, error.Description);
+
+                            // geri al
+                            await _userManager.DeleteAsync(user);
+                            ReturnUrl = returnUrl;
+                            ProviderDisplayName = info.ProviderDisplayName;
+                            return Page();
+                        }
+
                         _logger.LogInformation("User created an account using {Name} provider.", info.LoginProvider);
 
                         var userId = await _userManager.GetUserIdAsync(user);

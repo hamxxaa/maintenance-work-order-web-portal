@@ -1,0 +1,84 @@
+@model IEnumerable<mwowp.Web.Models.WorkOrder>
+@{
+    ViewData["Title"] = "Work Orders For Asset";
+    var assetName = ViewBag.AssetName as string;
+    var assetId = (int)ViewBag.AssetId;
+}
+
+<div class="container-fluid px-0">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <div>
+            <h1 class="h4 mb-1">
+                Work Orders For Asset
+                <small class="text-muted ms-2">@assetName (Id: @assetId)</small>
+            </h1>
+            <div class="text-muted small">
+                Total: @Model.Count()
+            </div>
+        </div>
+        <div class="d-flex gap-2">
+            <a asp-action="Create" asp-controller="WorkOrder" asp-route-assetId="@assetId" class="btn btn-sm btn-primary">
+                Create New Work Order
+            </a>
+            <a asp-action="Index" asp-controller="WorkOrder" class="btn btn-sm btn-outline-secondary">
+                Back
+            </a>
+        </div>
+    </div>
+
+    <div class="card shadow-sm">
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-sm table-striped mb-0 align-middle">
+                    <thead class="table-light">
+                        <tr>
+                            <th style="width:90px;">Id</th>
+                            <th style="width:180px;">Title</th>
+                            <th>Description</th>
+                            <th style="width:110px;">Priority</th>
+                            <th style="width:110px;">Status</th>
+                            <th style="width:160px;">Created At</th>
+                            <th style="width:150px;">Created By</th>
+                            <th style="width:150px;">Assigned To</th>
+                            <th style="width:120px;">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @if (Model.Any())
+                        {
+                            foreach (var w in Model)
+                            {
+                                <tr>
+                                    <td>@w.Id</td>
+                                    <td>@w.Title</td>
+                                    <td class="text-truncate" style="max-width:240px;">@w.Description</td>
+                                    <td>@(w.Priority?.ToString() ?? "-")</td>
+                                    <td>@w.Status</td>
+                                    <td>@w.CreatedAt.ToLocalTime()</td>
+                                    <td>@w.CreatedByUser?.UserName</td>
+                                    <td>@w.AssignedToUser?.UserName</td>
+                                    <td>
+                                        <a asp-action="ViewTask"
+                                           asp-controller="WorkOrder"
+                                           asp-route-id="@w.Id"
+                                           class="btn btn-outline-primary btn-sm">
+                                            View
+                                        </a>
+                                    </td>
+                                </tr>
+                            }
+                        }
+                        else
+                        {
+                            <tr>
+                                <td colspan="9" class="text-center text-muted py-3">
+                                    No work orders found for this asset.
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>

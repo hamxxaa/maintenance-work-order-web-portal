@@ -1,11 +1,12 @@
 ﻿@using System.Security.Claims
 @model mwowp.Web.Models.WorkOrder
+
 @{
-    ViewData["Title"] = "İş Emri Detayı";
+    ViewData["Title"] = "Work Order Details";
+
     var availableEquipments = ViewBag.Equipments as IEnumerable<mwowp.Web.Models.Equipment>;
     var availableSpareParts = ViewBag.SpareParts as IEnumerable<mwowp.Web.Models.SparePart>;
 
-    // Controller'dan gelen ayrıştırılmış listeler
     var approvedSpareParts = ViewBag.WorkOrderSpareParts as IEnumerable<mwowp.Web.Models.WorkOrderSparePart>;
     var requestedSpareParts = ViewBag.RequestedSpareParts as IEnumerable<mwowp.Web.Models.WorkOrderSparePart>;
 
@@ -17,11 +18,9 @@
     var isManager = User.IsInRole("Manager");
     var isOwnerUser = User.IsInRole("User") && User.FindFirst(ClaimTypes.NameIdentifier)?.Value == Model.CreatedByUserId;
 
-    // Öncelik bazlı servis ücreti (örnek değerler)
     var efectivePriority = Model.Priority ?? PriorityLevel.Medium;
     decimal priorityCost = FeeDefinitions.GetFee(efectivePriority);
 
-    // Onaylanmış yedek parça toplamı
     decimal sparePartsTotal = 0m;
     if (approvedSpareParts != null)
     {
@@ -32,396 +31,546 @@
         }
     }
 
-    // Toplam gider (yalnızca read-only durumlarda gösterilecek)
     var grandTotal = priorityCost + sparePartsTotal;
 }
 
-<h2>@Model.Title</h2>
+<div class="container-fluid px-0">
 
-@if (isReadOnly && (Model.Status != WorkOrderStatus.Canceled))
-{
-    <div class="alert alert-info d-flex justify-content-between align-items-center">
+    <!-- Page header -->
+    <div class="d-flex justify-content-between align-items-center mb-3">
         <div>
-            <strong>Toplam Gider:</strong>
-            <span class="ms-1">@grandTotal.ToString()$</span>
-            <span class="ms-3 text-muted">(Servis: @priorityCost.ToString()$ Yedek Parça: @sparePartsTotal.ToString()$)</span>
+            <h1 class="h4 mb-1">
+                Work Order Details
+                <small class="text-muted ms-2">#@Model.Id</small>
+            </h1>
+            <div class="text-muted small">
+                Created by: @Model.CreatedByUser?.UserName · @Model.CreatedAt.ToLocalTime()
+            </div>
         </div>
-        <a asp-action="DownloadInvoice" asp-controller="WorkOrder" asp-route-id="@Model.Id" class="btn btn-sm btn-outline-primary">
-            Fatura İndir (TXT)
-        </a>
-    </div>
-}
 
-<div class="card mb-3">
-    <div class="card-header">Genel Bilgiler</div>
-    <div class="card-body">
-        <dl class="row mb-0">
-            <dt class="col-sm-3">Açıklama</dt>
-            <dd class="col-sm-9">@Model.Description</dd>
-
-            <dt class="col-sm-3">Öncelik</dt>
-            <dd class="col-sm-9">@Model.Priority</dd>
-
-            <dt class="col-sm-3">Durum</dt>
-            <dd class="col-sm-9">@Model.Status</dd>
-
-            <dt class="col-sm-3">Varlık (Asset)</dt>
-            <dd class="col-sm-9">
-                @Model.Asset?.Name (Id: @Model.AssetId)
-            </dd>
-
-            <dt class="col-sm-3">Oluşturan</dt>
-            <dd class="col-sm-9">@Model.CreatedByUser?.UserName</dd>
-
-            <dt class="col-sm-3">Atanan</dt>
-            <dd class="col-sm-9">@Model.AssignedToUser?.UserName</dd>
-
-            <dt class="col-sm-3">Oluşturulma</dt>
-            <dd class="col-sm-9">@Model.CreatedAt.ToLocalTime()</dd>
-
-            <dt class="col-sm-3">SLA Bitiş</dt>
-            <dd class="col-sm-9">
-                @if (Model.SLAEndTime.HasValue)
-                {
-                    var localSla = Model.SLAEndTime.Value.ToLocalTime();
-                    var remaining = Model.SLAEndTime.Value - DateTime.UtcNow;
-                    <span>@localSla</span>
-                    <span class="ms-2 badge @(remaining.TotalSeconds <= 0 ? "bg-danger" : "bg-success")">
-                        @(remaining.TotalSeconds <= 0 ? "Süre doldu" : $"Kalan: {(int)Math.Ceiling(remaining.TotalDays)} gün")
-                    </span>
-                }
-                else
-                {
-                    <span class="text-muted">-</span>
-                }
-            </dd>
-
-            @if (Model.CompletedAt.HasValue)
+        <div class="d-flex flex-wrap gap-2 align-items-center">
+            <span class="badge bg-secondary text-uppercase fw-semibold">
+                Status: @Model.Status
+            </span>
+            @if (Model.Priority.HasValue)
             {
-                <dt class="col-sm-3">Tamamlanma</dt>
-                <dd class="col-sm-9">@Model.CompletedAt.Value.ToLocalTime()</dd>
+                <span class="badge bg-warning text-dark text-uppercase fw-semibold">
+                    Priority: @Model.Priority
+                </span>
             }
 
-            @if (!string.IsNullOrWhiteSpace(Model.RepairReport))
-            {
-                <dt class="col-sm-3">Onarım Raporu</dt>
-                <dd class="col-sm-9"><pre class="mb-0" style="white-space:pre-wrap;">@Model.RepairReport</pre></dd>
-            }
-        </dl>
-    </div>
-</div>
+            <a asp-action="AssetOrders"
+               asp-controller="WorkOrder"
+               asp-route-assetId="@Model.AssetId"
+               class="btn btn-outline-primary btn-sm">
+                All Work Orders For This Asset
+            </a>
 
-@if (Model.Attachments?.Any() == true)
-{
-    <div class="card mb-3">
-        <div class="card-header d-flex justify-content-between align-items-center">
-            <span>Yüklenen Resimler (@Model.Attachments.Count)</span>
+            @if (isTechnician)
+            {
+                <a asp-action="MyTasks" asp-controller="WorkOrder" class="btn btn-outline-secondary btn-sm">
+                    Back to List
+                </a>
+            }
+            else if (isManager)
+            {
+                <a asp-action="Index" asp-controller="WorkOrder" class="btn btn-outline-secondary btn-sm">
+                    Back to List
+                </a>
+            }
+            else
+            {
+                <a asp-action="MyOrders" asp-controller="WorkOrder" class="btn btn-outline-secondary btn-sm">
+                    Back to List
+                </a>
+            }
         </div>
-        <div class="card-body">
-            <div class="row g-3">
-                @foreach (var att in Model.Attachments)
-                {
-                    <div class="col-6 col-sm-4 col-md-3">
-                        <div class="border rounded p-1 h-100 d-flex flex-column">
-                            <a href="~/@att.FilePath" target="_blank" title="Tam boyut">
-                                <img src="~/@att.FilePath"
-                                     alt="WorkOrder Image"
-                                     class="img-fluid"
-                                     style="object-fit:cover;aspect-ratio:1/1;" />
-                            </a>
-                            <small class="text-muted mt-1">
-                                @att.CreatedAt.ToLocalTime()
-                            </small>
-                        </div>
+    </div>
+
+    <!-- Cost info & invoice -->
+    @if (isReadOnly && (Model.Status != WorkOrderStatus.Canceled))
+    {
+        <div class="alert alert-info d-flex justify-content-between align-items-center mb-3">
+            <div>
+                <strong>Total Cost:</strong>
+                <span class="ms-1 fs-5 fw-semibold">@grandTotal.ToString()$</span>
+                <span class="ms-3 text-muted small">
+                    (Service: @priorityCost.ToString()$ · Spare Parts: @sparePartsTotal.ToString()$)
+                </span>
+            </div>
+            <a asp-action="DownloadInvoice"
+               asp-controller="WorkOrder"
+               asp-route-id="@Model.Id"
+               class="btn btn-sm btn-outline-primary">
+                Download Invoice (TXT)
+            </a>
+        </div>
+    }
+
+    <div class="row">
+        <!-- Left column -->
+        <div class="col-lg-7 mb-3">
+
+            <!-- General Info -->
+            <div class="card mb-3 shadow-sm">
+                <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                    <div>
+                        <span class="fw-semibold">General Information</span>
                     </div>
-                }
-            </div>
-        </div>
-    </div>
-}
-else
-{
-    <div class="alert alert-light py-2">Bu iş emrine ait resim bulunmuyor.</div>
-}
+                    <span class="badge bg-light text-muted text-uppercase small">
+                        Asset: @Model.Asset?.Name (Id: @Model.AssetId)
+                    </span>
+                </div>
+                <div class="card-body">
+                    <dl class="row mb-0">
+                        <dt class="col-sm-3 text-muted small">Title</dt>
+                        <dd class="col-sm-9 fw-semibold">@Model.Title</dd>
 
-<div class="card mb-3">
-    <div class="card-header">Geçmiş (History)</div>
-    <div class="card-body p-0">
-        <table class="table table-sm mb-0">
-            <thead>
-                <tr>
-                    <th>Tarih/Saat</th>
-                    <th>Kim</th>
-                    <th>İşlem</th>
-                    <th>Eski Değer</th>
-                    <th>Yeni Değer</th>
-                </tr>
-            </thead>
-            <tbody>
-                @if (Model.History?.Any() == true)
-                {
-                    foreach (var h in Model.History.OrderByDescending(x => x.CreatedAt))
-                    {
-                        <tr>
-                            <td>@h.CreatedAt.ToLocalTime()</td>
-                            <td>@(h.ChangedByUser?.UserName ?? "-")</td>
-                            <td>@h.Action</td>
-                            <td>@(string.IsNullOrWhiteSpace(h.OldValue) ? "-" : h.OldValue)</td>
-                            <td>@(string.IsNullOrWhiteSpace(h.NewValue) ? "-" : h.NewValue)</td>
-                        </tr>
-                    }
-                }
-                else
-                {
-                    <tr><td colspan="5" class="text-muted">Geçmiş kaydı bulunmuyor.</td></tr>
-                }
-            </tbody>
-        </table>
-    </div>
-</div>
+                        <dt class="col-sm-3 text-muted small">Description</dt>
+                        <dd class="col-sm-9">@Model.Description</dd>
 
-<div class="row">
-    <!-- Ekipmanlar -->
-    <div class="col-md-6">
-        <div class="card mb-3">
-            <div class="card-header d-flex justify-content-between align-items-center">
-                <span>Kullanılan Ekipmanlar</span>
-            </div>
-            <div class="card-body p-0">
-                <table class="table table-sm mb-0">
-                    <thead>
-                        <tr>
-                            <th>Ad</th>
-                            <th>Not</th>
-                            <th>Veriliş</th>
-                            <th>İade</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @if (Model.WorkOrderEquipments?.Any() == true)
-                        {
-                            foreach (var e in Model.WorkOrderEquipments)
-                            {
-                                <tr>
-                                    <td>@e.Equipment?.Name</td>
-                                    <td>@e.UsageNotes</td>
-                                    <td>@e.AssignedAt.ToLocalTime()</td>
-                                    <td>@(e.ReturnedAt.HasValue? e.ReturnedAt.Value.ToLocalTime().ToString() : "-")</td>
-                                </tr>
-                            }
-                        }
-                        else
-                        {
-                            <tr><td colspan="4" class="text-muted">Kayıt yok.</td></tr>
-                        }
-                    </tbody>
-                </table>
-            </div>
-            <div class="card-footer">
-                @if (!isReadOnly && isTechnician)
-                {
-                    <form asp-action="AddEquipment" asp-controller="WorkOrder" method="post" class="row gy-2 gx-2">
-                        @Html.AntiForgeryToken()
-                        <input type="hidden" name="id" value="@Model.Id" />
-                        <div class="col-5">
-                            <select class="form-select form-select-sm" name="equipmentId" required>
-                                <option value="">Ekipman seç...</option>
-                                @if (availableEquipments != null)
-                                {
-                                    foreach (var eq in availableEquipments)
-                                    {
-                                        <option value="@eq.Id">@eq.Name</option>
-                                    }
-                                }
-                            </select>
-                        </div>
-                        <div class="col-5">
-                            <input type="text" name="usageNotes" class="form-control form-control-sm" placeholder="Kullanım notu" />
-                        </div>
-                        <div class="col-2 d-grid">
-                            <button type="submit" class="btn btn-sm btn-primary">Ekle</button>
-                        </div>
-                    </form>
-                }
-                else
-                {
-                    <div class="text-muted small">Tamamlanan iş emrinde ekipman eklenemez.</div>
-                }
-            </div>
-        </div>
-    </div>
+                        <dt class="col-sm-3 text-muted small">Priority</dt>
+                        <dd class="col-sm-9">@Model.Priority</dd>
 
-    <!-- Yedek Parçalar -->
-    <div class="col-md-6">
-        <div class="card mb-3">
-            <div class="card-header">Onaylanmış Yedek Parçalar</div>
-            <div class="card-body p-0">
-                <table class="table table-sm mb-0">
-                    <thead>
-                        <tr>
-                            <th>Parça</th>
-                            <th>Miktar</th>
-                            <th>Birim Fiyat</th>
-                            <th>Toplam</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @if (approvedSpareParts != null && approvedSpareParts.Any())
-                        {
-                            foreach (var sp in approvedSpareParts)
+                        <dt class="col-sm-3 text-muted small">Status</dt>
+                        <dd class="col-sm-9">@Model.Status</dd>
+
+                        <dt class="col-sm-3 text-muted small">Created By</dt>
+                        <dd class="col-sm-9">@Model.CreatedByUser?.UserName</dd>
+
+                        <dt class="col-sm-3 text-muted small">Assigned</dt>
+                        <dd class="col-sm-9">@Model.AssignedToUser?.UserName</dd>
+
+                        <dt class="col-sm-3 text-muted small">Created At</dt>
+                        <dd class="col-sm-9">@Model.CreatedAt.ToLocalTime()</dd>
+
+                        <dt class="col-sm-3 text-muted small">SLA End</dt>
+                        <dd class="col-sm-9">
+                            @if (Model.SLAEndTime.HasValue)
                             {
-                                var unit = sp.SparePart?.UnitPrice ?? 0m;
-                                var total = unit * sp.QuantityUsed;
-                                <tr>
-                                    <td>@sp.SparePart?.Name</td>
-                                    <td>@sp.QuantityUsed</td>
-                                    <td>@unit.ToString()$</td>
-                                    <td>@total.ToString()$</td>
-                                </tr>
-                            }
-                        }
-                        else
-                        {
-                            @if (isReadOnly)
-                            {
-                                <div class="text-muted small">Tamamlanan iş emrinde ekipman eklenemez.</div>
+                                var localSla = Model.SLAEndTime.Value.ToLocalTime();
+                                var remaining = Model.SLAEndTime.Value - DateTime.UtcNow;
+                                <span>@localSla</span>
+                                <span class="ms-2 badge @(remaining.TotalSeconds <= 0 ? "bg-danger" : "bg-success")">
+                                    @(remaining.TotalSeconds <= 0 ? "Expired" : $"Remaining: {(int)Math.Ceiling(remaining.TotalDays)} days")
+                                </span>
                             }
                             else
                             {
-                                <div class="text-muted small">Sadece tekniker ekipman ekleyebilir.</div>
+                                <span class="text-muted">-</span>
                             }
+                        </dd>
+
+                        @if (Model.CompletedAt.HasValue)
+                        {
+                            <dt class="col-sm-3 text-muted small">Completed At</dt>
+                            <dd class="col-sm-9">@Model.CompletedAt.Value.ToLocalTime()</dd>
                         }
-                    </tbody>
-                </table>
+
+                        @if (!string.IsNullOrWhiteSpace(Model.RepairReport))
+                        {
+                            <dt class="col-sm-3 text-muted small">Repair Report</dt>
+                            <dd class="col-sm-9">
+                                <pre class="mb-0 border rounded p-2 bg-light" style="white-space: pre-wrap;">
+    @Model.RepairReport</pre>
+                            </dd>
+                        }
+                    </dl>
+                </div>
             </div>
-            <div class="card-footer">
-                @if (!isReadOnly && isTechnician)
-                {
-                    <form asp-action="AddSparePart" asp-controller="WorkOrder" method="post" class="row gy-2 gx-2">
-                        @Html.AntiForgeryToken()
-                        <input type="hidden" name="id" value="@Model.Id" />
-                        <div class="col-6">
-                            <select class="form-select form-select-sm" name="sparePartId" required>
-                                <option value="">Parça seç...</option>
-                                @if (availableSpareParts != null)
-                                {
-                                    foreach (var part in availableSpareParts)
-                                    {
-                                        <option value="@part.Id">@part.Name (@part.UnitPrice.ToString()$)</option>
-                                    }
-                                }
-                            </select>
-                        </div>
-                        <div class="col-4">
-                            <input type="number" min="1" name="quantityUsed" class="form-control form-control-sm" placeholder="Miktar" required />
-                        </div>
-                        <div class="col-2 d-grid">
-                            <button type="submit" class="btn btn-sm btn-primary">Talep Et</button>
-                        </div>
-                        <div class="col-12">
-                            <small class="text-muted">Not: Bu işlem parça kullanımını direkt eklemez, kullanıcı onayına gönderir.</small>
-                        </div>
-                    </form>
-                }
-                else
-                {
-                    @if (isReadOnly)
+
+            <!-- Attachments -->
+            <div class="card mb-3 shadow-sm">
+                <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                    <span class="fw-semibold">Uploaded Images</span>
+                    <span class="badge bg-light text-muted small">@Model.Attachments?.Count ?? 0 items</span>
+                </div>
+                <div class="card-body">
+                    @if (Model.Attachments?.Any() == true)
                     {
-                        <div class="text-muted small">Tamamlanan iş emrinde parça talep edilemez.</div>                
+                        <div class="row g-3">
+                            @foreach (var att in Model.Attachments)
+                            {
+                                <div class="col-6 col-sm-4 col-md-3">
+                                    <div class="border rounded-3 p-1 h-100 d-flex flex-column bg-light-subtle">
+                                        <a href="~/@att.FilePath" target="_blank" title="Full size">
+                                            <img src="~/@att.FilePath"
+                                                 alt="WorkOrder Image"
+                                                 class="img-fluid rounded-2"
+                                                 style="object-fit: cover; aspect-ratio: 1/1;" />
+                                        </a>
+                                        <small class="text-muted mt-1">
+                                            @att.CreatedAt.ToLocalTime()
+                                        </small>
+                                    </div>
+                                </div>
+                            }
+                        </div>
                     }
                     else
                     {
-                        <div class="text-muted small">Sadece tekniker parça talep edebilir.</div>
+                        <div class="alert alert-light border-0 mb-0 py-2">
+                            No images for this work order.
+                        </div>
                     }
-                }
+                </div>
             </div>
-        </div>
-    </div>
-</div>
 
-@if (isOwnerUser && requestedSpareParts != null && requestedSpareParts.Any())
-{
-    <div class="card mb-3">
-        <div class="card-header d-flex justify-content-between align-items-center">
-            <span>Bekleyen Yedek Parça Talepleri</span>
-            <small class="text-muted">Onayladığınızda stok düşer; reddederseniz iş emri iptal olur.</small>
+            <!-- History -->
+            <div class="card mb-3 shadow-sm">
+                <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                    <span class="fw-semibold">History</span>
+                    <small class="text-muted">All changes made on the work order</small>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-sm table-striped mb-0 align-middle">
+                            <thead class="table-light">
+                                <tr>
+                                    <th style="width: 18%;">Date/Time</th>
+                                    <th style="width: 15%;">Who</th>
+                                    <th style="width: 20%;">Action</th>
+                                    <th>Old Value</th>
+                                    <th>New Value</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @if (Model.History?.Any() == true)
+                                {
+                                    foreach (var h in Model.History.OrderByDescending(x => x.CreatedAt))
+                                    {
+                                        <tr>
+                                            <td>@h.CreatedAt.ToLocalTime()</td>
+                                            <td>@(h.ChangedByUser?.UserName ?? "-")</td>
+                                            <td>@h.Action</td>
+                                            <td>@(string.IsNullOrWhiteSpace(h.OldValue) ? "-" : h.OldValue)</td>
+                                            <td>@(string.IsNullOrWhiteSpace(h.NewValue) ? "-" : h.NewValue)</td>
+                                        </tr>
+                                    }
+                                }
+                                else
+                                {
+                                    <tr>
+                                        <td colspan="5" class="text-muted text-center py-3">
+                                            No history records.
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
         </div>
-        <div class="card-body p-0">
-            <table class="table table-sm mb-0">
-                <thead>
-                    <tr>
-                        <th>Parça</th>
-                        <th>Miktar</th>
-                        <th>Birim Fiyat</th>
-                        <th>Toplam</th>
-                        <th>İşlem</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @foreach (var req in requestedSpareParts)
+
+        <!-- Right column -->
+        <div class="col-lg-5 mb-3">
+
+            <!-- Equipments -->
+            <div class="card mb-3 shadow-sm">
+                <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                    <span class="fw-semibold">Used Equipment</span>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-sm mb-0 align-middle">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Name</th>
+                                    <th>Notes</th>
+                                    <th>Assigned</th>
+                                    <th>Returned</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @if (Model.WorkOrderEquipments?.Any() == true)
+                                {
+                                    foreach (var e in Model.WorkOrderEquipments)
+                                    {
+                                        <tr>
+                                            <td>@e.Equipment?.Name</td>
+                                            <td>@e.UsageNotes</td>
+                                            <td>@e.AssignedAt.ToLocalTime()</td>
+                                            <td>
+                                                @(e.ReturnedAt.HasValue
+                                                    ? e.ReturnedAt.Value.ToLocalTime().ToString()
+                                                    : "-")
+                                            </td>
+                                        </tr>
+                                    }
+                                }
+                                else
+                                {
+                                    <tr>
+                                        <td colspan="4" class="text-muted text-center py-3">
+                                            No records.
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="card-footer bg-light">
+                    @if (!isReadOnly && isTechnician)
                     {
-                        var unit = req.SparePart?.UnitPrice ?? 0m;
-                        var total = unit * req.QuantityUsed;
-                        <tr>
-                            <td>@req.SparePart?.Name</td>
-                            <td>@req.QuantityUsed</td>
-                            <td>@unit.ToString()$</td>
-                            <td>@total.ToString()$</td>
-                            <td class="d-flex gap-1">
-                                <form asp-action="ApproveSparePart" asp-controller="WorkOrder" method="post" onsubmit="return confirm('Bu parça talebini onaylamak istediğinize emin misiniz?');">
-                                    @Html.AntiForgeryToken()
-                                    <input type="hidden" name="id" value="@Model.Id" />
-                                    <input type="hidden" name="workOrderSparePartId" value="@req.Id" />
-                                    <button type="submit" class="btn btn-success btn-sm">Onayla</button>
-                                </form>
-                                <form asp-action="RejectSparePart" asp-controller="WorkOrder" method="post" onsubmit="return confirm('Reddeder ve iş emrini iptal edersiniz. Emin misiniz?');">
-                                    @Html.AntiForgeryToken()
-                                    <input type="hidden" name="id" value="@Model.Id" />
-                                    <input type="hidden" name="workOrderSparePartId" value="@req.Id" />
-                                    <button type="submit" class="btn btn-danger btn-sm">Reddet</button>
-                                </form>
-                            </td>
-                        </tr>
+                        <form asp-action="AddEquipment"
+                              asp-controller="WorkOrder"
+                              method="post"
+                              class="row gy-2 gx-2">
+                            @Html.AntiForgeryToken()
+                            <input type="hidden" name="id" value="@Model.Id" />
+                            <div class="col-5">
+                                <select class="form-select form-select-sm" name="equipmentId" required>
+                                    <option value="">Select equipment...</option>
+                                    @if (availableEquipments != null)
+                                    {
+                                        foreach (var eq in availableEquipments)
+                                        {
+                                            <option value="@eq.Id">@eq.Name</option>
+                                        }
+                                    }
+                                </select>
+                            </div>
+                            <div class="col-5">
+                                <input type="text"
+                                       name="usageNotes"
+                                       class="form-control form-control-sm"
+                                       placeholder="Usage note" />
+                            </div>
+                            <div class="col-2 d-grid">
+                                <button type="submit" class="btn btn-sm btn-primary">
+                                    Add
+                                </button>
+                            </div>
+                        </form>
                     }
-                </tbody>
-            </table>
+                    else
+                    {
+                        <div class="text-muted small">
+                            Cannot add equipment to a completed work order.
+                        </div>
+                    }
+                </div>
+            </div>
+
+            <!-- Approved spare parts -->
+            <div class="card mb-3 shadow-sm">
+                <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                    <span class="fw-semibold">Approved Spare Parts</span>
+                    <small class="text-muted">
+                        Total: @sparePartsTotal.ToString()$
+                    </small>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-sm mb-0 align-middle">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Part</th>
+                                    <th>Quantity</th>
+                                    <th>Unit Price</th>
+                                    <th>Total</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @if (approvedSpareParts != null && approvedSpareParts.Any())
+                                {
+                                    foreach (var sp in approvedSpareParts)
+                                    {
+                                        var unit = sp.SparePart?.UnitPrice ?? 0m;
+                                        var total = unit * sp.QuantityUsed;
+                                        <tr>
+                                            <td>@sp.SparePart?.Name</td>
+                                            <td>@sp.QuantityUsed</td>
+                                            <td>@unit.ToString()$</td>
+                                            <td>@total.ToString()$</td>
+                                        </tr>
+                                    }
+                                }
+                                else
+                                {
+                                    <tr>
+                                        <td colspan="4" class="text-muted text-center py-3">
+                                            No approved spare parts yet.
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="card-footer bg-light">
+                    @if (!isReadOnly && isTechnician)
+                    {
+                        <form asp-action="AddSparePart"
+                              asp-controller="WorkOrder"
+                              method="post"
+                              class="row gy-2 gx-2">
+                            @Html.AntiForgeryToken()
+                            <input type="hidden" name="id" value="@Model.Id" />
+                            <div class="col-6">
+                                <select class="form-select form-select-sm" name="sparePartId" required>
+                                    <option value="">Select part...</option>
+                                    @if (availableSpareParts != null)
+                                    {
+                                        foreach (var part in availableSpareParts)
+                                        {
+                                            <option value="@part.Id">
+                                                @part.Name (@part.UnitPrice.ToString()$)
+                                            </option>
+                                        }
+                                    }
+                                </select>
+                            </div>
+                            <div class="col-4">
+                                <input type="number"
+                                       min="1"
+                                       name="quantityUsed"
+                                       class="form-control form-control-sm"
+                                       placeholder="Quantity"
+                                       required />
+                            </div>
+                            <div class="col-2 d-grid">
+                                <button type="submit" class="btn btn-sm btn-primary">
+                                    Request
+                                </button>
+                            </div>
+                            <div class="col-12">
+                                <small class="text-muted">
+                                    Note: This does not directly add usage; it sends for owner approval.
+                                </small>
+                            </div>
+                        </form>
+                    }
+                    else
+                    {
+                        @if (isReadOnly)
+                        {
+                            <div class="text-muted small">
+                                Cannot request parts on a completed work order.
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="text-muted small">
+                                Only technicians can request parts.
+                            </div>
+                        }
+                    }
+                </div>
+            </div>
+
+            <!-- Pending spare part requests (owner only) -->
+            @if (isOwnerUser && requestedSpareParts != null && requestedSpareParts.Any())
+            {
+                <div class="card mb-3 shadow-sm">
+                    <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                        <span class="fw-semibold">Pending Spare Part Requests</span>
+                        <small class="text-muted">
+                            If approved, stock decreases; if rejected the work order is canceled.
+                        </small>
+                    </div>
+                    <div class="card-body p-0">
+                        <div class="table-responsive">
+                            <table class="table table-sm mb-0 align-middle">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Part</th>
+                                        <th>Quantity</th>
+                                        <th>Unit Price</th>
+                                        <th>Total</th>
+                                        <th style="width: 160px;">Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var req in requestedSpareParts)
+                                    {
+                                        var unit = req.SparePart?.UnitPrice ?? 0m;
+                                        var total = unit * req.QuantityUsed;
+                                        <tr>
+                                            <td>@req.SparePart?.Name</td>
+                                            <td>@req.QuantityUsed</td>
+                                            <td>@unit.ToString()$</td>
+                                            <td>@total.ToString()$</td>
+                                            <td>
+                                                <div class="d-flex gap-1">
+                                                    <form asp-action="ApproveSparePart"
+                                                          asp-controller="WorkOrder"
+                                                          method="post"
+                                                          onsubmit="return confirm('Are you sure you want to approve this part request?');">
+                                                        @Html.AntiForgeryToken()
+                                                        <input type="hidden" name="id" value="@Model.Id" />
+                                                        <input type="hidden" name="workOrderSparePartId" value="@req.Id" />
+                                                        <button type="submit" class="btn btn-success btn-sm">
+                                                            Approve
+                                                        </button>
+                                                    </form>
+                                                    <form asp-action="RejectSparePart"
+                                                          asp-controller="WorkOrder"
+                                                          method="post"
+                                                          onsubmit="return confirm('Rejecting will cancel the work order. Are you sure?');">
+                                                        @Html.AntiForgeryToken()
+                                                        <input type="hidden" name="id" value="@Model.Id" />
+                                                        <input type="hidden" name="workOrderSparePartId" value="@req.Id" />
+                                                        <button type="submit" class="btn btn-danger btn-sm">
+                                                            Reject
+                                                        </button>
+                                                    </form>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            }
+            else if (isOwnerUser && (requestedSpareParts == null || !requestedSpareParts.Any()))
+            {
+                <div class="alert alert-light border-0 mb-3 py-2">
+                    No pending spare part requests.
+                </div>
+            }
+
+            <!-- Technician completion form -->
+            @if (Model.Status != mwowp.Web.Models.WorkOrderStatus.Completed
+                        && Model.Status != mwowp.Web.Models.WorkOrderStatus.Inspected
+                        && Model.Status != mwowp.Web.Models.WorkOrderStatus.Canceled
+                        && isTechnician)
+            {
+                <div class="card shadow-sm">
+                    <div class="card-header bg-white">
+                        <span class="fw-semibold">Complete with Repair Report</span>
+                    </div>
+                    <div class="card-body">
+                        <form asp-action="Complete"
+                              asp-controller="WorkOrder"
+                              method="post"
+                              class="d-flex flex-column gap-3"
+                              onsubmit="return confirm('Are you sure you want to complete this work order?');">
+                            @Html.AntiForgeryToken()
+                            <input type="hidden" name="id" value="@Model.Id" />
+                            <div class="form-floating">
+                                <textarea name="repairReport"
+                                      class="form-control"
+                                      style="height: 140px;"
+                                      placeholder="Enter repair report..."
+                                      required></textarea>
+                                <label>Repair Report</label>
+                            </div>
+                            <div class="d-flex justify-content-end">
+                                <button type="submit" class="btn btn-success btn-sm">
+                                    Submit Report and Complete
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            }
+
         </div>
     </div>
-}
-else if (isOwnerUser && (requestedSpareParts == null || !requestedSpareParts.Any()))
-{
-    <div class="alert alert-light py-2">Bekleyen yedek parça talebi bulunmuyor.</div>
-}
-
-<div class="d-flex gap-2">
-    @if (isTechnician)
-    {
-        <a asp-action="MyTasks" asp-controller="WorkOrder" class="btn btn-secondary btn-sm">Listeye Dön</a>            
-    }
-    else if(isManager)
-    {
-        <a asp-action="Index" asp-controller="WorkOrder" class="btn btn-secondary btn-sm">Listeye Dön</a>
-    }
-    else
-    {
-        <a asp-action="MyOrders" asp-controller="WorkOrder" class="btn btn-secondary btn-sm">Listeye Dön</a>
-    }
-
-    @if (Model.Status != mwowp.Web.Models.WorkOrderStatus.Completed
-        && Model.Status != mwowp.Web.Models.WorkOrderStatus.Inspected
-        && Model.Status != mwowp.Web.Models.WorkOrderStatus.Canceled
-        && isTechnician)
-    {
-        <form asp-action="Complete" asp-controller="WorkOrder" method="post" class="d-flex flex-column gap-2" onsubmit="return confirm('İş emrini tamamlamak istediğinize emin misiniz?');">
-            @Html.AntiForgeryToken()
-            <input type="hidden" name="id" value="@Model.Id" />
-            <div class="form-floating">
-                <textarea name="repairReport" class="form-control" style="height: 120px;" placeholder="Onarım raporunu giriniz..." required></textarea>
-                <label>Onarım Raporu</label>
-            </div>
-            <div>
-                <button type="submit" class="btn btn-success btn-sm">Raporla ve Tamamla</button>
-            </div>
-        </form>
-    }
 </div>

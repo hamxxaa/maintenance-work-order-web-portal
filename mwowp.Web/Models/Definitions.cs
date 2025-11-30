@@ -38,7 +38,7 @@
     {
         OnRepair,
         SentToOwner,
-        PickedUpByOwner
+        New
     }
 
     // Python dict benzeri: PriorityLevel -> TimeSpan (gün cinsinden)

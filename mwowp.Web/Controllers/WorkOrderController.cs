@@ -415,5 +415,20 @@ namespace mwowp.Web.Controllers
             var bytes = Encoding.UTF8.GetBytes(invoice.InvoiceText ?? string.Empty);
             return File(bytes, "text/plain", fileName);
         }
+
+        public async Task<IActionResult> AssetOrders(int assetId)
+        {
+            var workOrders = await _context.WorkOrders
+                .Include(w => w.Asset)
+                .Include(w => w.CreatedByUser)
+                .Include(w => w.AssignedToUser)
+                .Where(w => w.AssetId == assetId)
+                .OrderByDescending(w => w.CreatedAt)
+                .ToListAsync();
+
+            ViewBag.AssetId = assetId;
+            ViewBag.AssetName = workOrders.FirstOrDefault()?.Asset?.Name ?? $"Asset #{assetId}";
+            return View(workOrders);
+        }
     }
 }

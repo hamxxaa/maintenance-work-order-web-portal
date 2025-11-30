@@ -232,6 +232,7 @@ namespace mwowp.Web.Services
                 Comments = comments
             };
             order.Status = WorkOrderStatus.Inspected;
+            order.Asset.Status = AssetStatus.SentToOwner;
 
             _db.Inspections.Add(inspection);
             await _db.SaveChangesAsync();

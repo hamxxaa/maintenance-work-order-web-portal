@@ -115,12 +115,26 @@ namespace mwowp.Web.Areas.Identity.Pages.Account
             {
                 var user = CreateUser();
 
+                // FullName DB'de zorunlu: formda alan yoksa email ile doldur
+                user.FullName = Input.Email;
+
                 await _userStore.SetUserNameAsync(user, Input.Email, CancellationToken.None);
                 await _emailStore.SetEmailAsync(user, Input.Email, CancellationToken.None);
                 var result = await _userManager.CreateAsync(user, Input.Password);
 
                 if (result.Succeeded)
                 {
+                    // User rolünü ata; baþarýsýz olursa kullanýcýyý geri al ve hata göster
+                    var roleResult = await _userManager.AddToRoleAsync(user, "User");
+                    if (!roleResult.Succeeded)
+                    {
+                        foreach (var error in roleResult.Errors)
+                            ModelState.AddModelError(string.Empty, error.Description);
+
+                        await _userManager.DeleteAsync(user);
+                        return Page();
+                    }
+
                     _logger.LogInformation("User created a new account with password.");
 
                     var userId = await _userManager.GetUserIdAsync(user);

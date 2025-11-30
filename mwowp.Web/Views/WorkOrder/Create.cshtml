@@ -1,32 +1,115 @@
 ﻿@model mwowp.Web.Models.WorkOrder
 
-<form asp-action="Create" method="post" enctype="multipart/form-data">
-    <div class="form-group">
-        <label asp-for="AssetId"></label>
-        <select asp-for="AssetId" asp-items="@(new SelectList(ViewBag.Assets, "Id", "Name"))" class="form-control"></select>
-    </div>
-    <div class="form-group">
-        <label asp-for="Title"></label>
-        <input asp-for="Title" class="form-control" />
-    </div>
-    <div class="form-group">
-        <label asp-for="Description"></label>
-        <textarea asp-for="Description" class="form-control"></textarea>
-    </div>
+@{
+    ViewData["Title"] = "Create Work Order";
+}
+
+<div class="container py-3">
+    <!-- Page header -->
     <div class="mb-3">
-        <label asp-for="Priority" class="form-label"></label>
-        <select asp-for="Priority" class="form-select">
-            <option value="@PriorityLevel.Low">Low(@FeeDefinitions.GetFee(PriorityLevel.Low)$)</option>
-            <option value="@PriorityLevel.Medium">Medium(@FeeDefinitions.GetFee(PriorityLevel.Medium)$)</option>
-            <option value="@PriorityLevel.High">High(@FeeDefinitions.GetFee(PriorityLevel.High)$)</option>
-            <option value="@PriorityLevel.Critical">Critical(@FeeDefinitions.GetFee(PriorityLevel.Critical)$) </option>
-        </select>
-        <span asp-validation-for="Priority" class="text-danger"></span>
+        <h1 class="h4 mb-1">Create New Work Order</h1>
+        <p class="text-muted small mb-0">
+            Submit a maintenance request for one of your assets. Technicians will be assigned based on availability and priority.
+        </p>
     </div>
-    <div class="form-group">
-        <label>Resimler (çoklu)</label>
-        <input type="file" name="images" multiple accept="image/*" class="form-control" />
-        <small class="form-text text-muted">Birden fazla resim seçebilirsiniz. (JPG, PNG, GIF, WEBP - max 5MB/ dosya)</small>
+
+    <div class="card shadow-sm">
+        <div class="card-body">
+            <form asp-action="Create" method="post" enctype="multipart/form-data" novalidate>
+                @Html.AntiForgeryToken()
+
+                <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
+
+                <div class="row">
+                    <div class="col-md-6">
+                        <!-- Asset -->
+                        <div class="mb-3">
+                            <label asp-for="AssetId" class="form-label">Asset</label>
+                            <select asp-for="AssetId"
+                                    asp-items="@(new SelectList(ViewBag.Assets, "Id", "Name"))"
+                                    class="form-select">
+                                <option value="">Select an asset...</option>
+                            </select>
+                            <span asp-validation-for="AssetId" class="text-danger small"></span>
+                        </div>
+
+                        <!-- Priority -->
+                        <div class="mb-3">
+                            <label asp-for="Priority" class="form-label">Priority</label>
+                            <select asp-for="Priority" class="form-select">
+                                <option value="">Select priority...</option>
+                                <option value="@PriorityLevel.Low">
+                                    Low (@FeeDefinitions.GetFee(PriorityLevel.Low)$)
+                                </option>
+                                <option value="@PriorityLevel.Medium">
+                                    Medium (@FeeDefinitions.GetFee(PriorityLevel.Medium)$)
+                                </option>
+                                <option value="@PriorityLevel.High">
+                                    High (@FeeDefinitions.GetFee(PriorityLevel.High)$)
+                                </option>
+                                <option value="@PriorityLevel.Critical">
+                                    Critical (@FeeDefinitions.GetFee(PriorityLevel.Critical)$)
+                                </option>
+                            </select>
+                            <span asp-validation-for="Priority" class="text-danger small"></span>
+                            <small class="form-text text-muted">
+                                Priority also affects the service fee for this work order.
+                            </small>
+                        </div>
+                    </div>
+
+                    <div class="col-md-6">
+                        <!-- Title -->
+                        <div class="mb-3">
+                            <label asp-for="Title" class="form-label">Title</label>
+                            <input asp-for="Title" class="form-control" />
+                            <span asp-validation-for="Title" class="text-danger small"></span>
+                        </div>
+
+                        <!-- Description -->
+                        <div class="mb-3">
+                            <label asp-for="Description" class="form-label">Description</label>
+                            <textarea asp-for="Description"
+                                      class="form-control"
+                                      rows="4"
+                                      placeholder="Describe the problem, symptoms, or any special instructions."></textarea>
+                            <span asp-validation-for="Description" class="text-danger small"></span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Images -->
+                <div class="mb-3">
+                    <label class="form-label">Images (optional, multiple)</label>
+                    <input type="file"
+                           name="images"
+                           multiple
+                           accept="image/*"
+                           class="form-control" />
+                    <small class="form-text text-muted">
+                        You can upload multiple images (JPG, PNG, GIF, WEBP – max 5MB per file).
+                    </small>
+                </div>
+
+                <div class="d-flex justify-content-between align-items-center mt-3">
+                    <a asp-action="MyOrders" class="btn btn-outline-secondary btn-sm">
+                        Cancel
+                    </a>
+                    <button type="submit" class="btn btn-primary btn-sm">
+                        Create Work Order
+                    </button>
+                </div>
+            </form>
+        </div>
+
+        <div class="card-footer bg-light small text-muted">
+            Once the work order is created, you can track its status and see technician updates from the “My Orders” page.
+        </div>
     </div>
-    <button type="submit" class="btn btn-primary">Create</button>
-</form>
+</div>
+
+@section Scripts {
+    @{
+        await Html.RenderPartialAsync("_ValidationScriptsPartial");
+    }
+}

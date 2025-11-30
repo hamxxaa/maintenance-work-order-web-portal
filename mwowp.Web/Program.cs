@@ -4,6 +4,7 @@ using mwowp.Web.Data;
 using mwowp.Web.Models;
 using mwowp.Web.Services;
 using mwowp.Web.Hubs;
+using Microsoft.AspNetCore.Identity.UI.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -25,9 +26,16 @@ builder.Services.AddIdentity<ApplicationUser, IdentityRole>(options =>
     options.Password.RequireLowercase = true;
 
     options.User.RequireUniqueEmail = true;
+
+    // E-posta onayı zorunlu değil
+    options.SignIn.RequireConfirmedAccount = false;
+    options.SignIn.RequireConfirmedEmail = false;
 })
 .AddEntityFrameworkStores<ApplicationDbContext>()
 .AddDefaultTokenProviders();
+
+// IEmailSender -> Null (gerçek mail göndermez)
+builder.Services.AddSingleton<IEmailSender, NullEmailSender>();
 
 // =========================
 // 3. MVC & Razor
@@ -54,8 +62,6 @@ var app = builder.Build();
 // =========================
 // 6. Middleware
 // =========================
-
-
 if (!app.Environment.IsDevelopment())
 {
     app.UseExceptionHandler("/Home/Error");

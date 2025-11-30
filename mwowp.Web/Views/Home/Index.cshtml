@@ -1,8 +1,250 @@
-﻿@{
-    ViewData["Title"] = "Home Page";
+﻿@using Microsoft.AspNetCore.Identity
+@using mwowp.Web.Models
+@inject SignInManager<ApplicationUser> SignInManager
+@inject UserManager<ApplicationUser> UserManager
+
+@{
+    ViewData["Title"] = "Home";
+
+    bool isSignedIn = SignInManager.IsSignedIn(User);
+    bool isManager = false;
+    bool isTechnician = false;
+    bool isStandardUser = false;
+    string userName = "Guest";
+
+    if (isSignedIn)
+    {
+        var currentUser = await UserManager.GetUserAsync(User);
+        var roles = await UserManager.GetRolesAsync(currentUser);
+
+        userName = currentUser?.UserName ?? "User";
+        isManager = roles.Contains("Manager");
+        isTechnician = roles.Contains("Technician");
+        isStandardUser = !isManager && !isTechnician; // same logic as navbar
+    }
 }
 
-<div class="text-center">
-    <h1 class="display-4">Welcome</h1>
-    <p>Learn about <a href="https://learn.microsoft.com/aspnet/core">building Web apps with ASP.NET Core</a>.</p>
+<div class="container py-4">
+    <!-- Hero / greeting -->
+    <div class="row mb-4">
+        <div class="col-lg-8">
+            <h1 class="h3 mb-2">
+                @if (isSignedIn)
+                {
+                    @:Welcome back, @userName
+                }
+                else
+                {
+                    @:Welcome to FM App
+                }
+            </h1>
+            <p class="text-muted mb-3">
+                Facility Maintenance web portal for managing assets, work orders, and technician tasks.
+            </p>
+
+            @if (!isSignedIn)
+            {
+                <div class="d-flex flex-wrap gap-2">
+                    <a asp-area="Identity"
+                       asp-page="/Account/Login"
+                       class="btn btn-primary btn-sm">
+                        Log in to your account
+                    </a>
+
+                </div>
+            }
+            else
+            {
+                <p class="small text-muted mb-1">
+                    Your role:
+                    @if (isManager)
+                    {
+                        <span class="badge bg-primary ms-1">Manager</span>
+                    }
+                    else if (isTechnician)
+                    {
+                        <span class="badge bg-success ms-1">Technician</span>
+                    }
+                    else
+                    {
+                        <span class="badge bg-secondary ms-1">User</span>
+                    }
+                </p>
+                <p class="small text-muted">
+                    Use the quick actions and dashboards below to jump directly into your daily tasks.
+                </p>
+            }
+        </div>
+    </div>
+
+    @if (isSignedIn)
+    {
+        <!-- Role-specific sections when logged in -->
+        <div class="row g-3">
+
+            @* MANAGER *@
+            @if (isManager)
+            {
+                <div class="col-md-6">
+                    <div class="card h-100 shadow-sm">
+                        <div class="card-header bg-white">
+                            <h2 class="h6 mb-0">Manager Dashboard</h2>
+                            <div class="text-muted small">
+                                Monitor all work orders and manage technicians.
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            <ul class="list-unstyled mb-0">
+                                <li class="mb-2">
+                                    <a asp-controller="WorkOrder" asp-action="Index" class="text-decoration-none">
+                                        <strong>All Work Orders</strong>
+                                        <div class="text-muted small">
+                                            View and filter every work order in the system.
+                                        </div>
+                                    </a>
+                                </li>
+                                <li class="mb-2">
+                                    <a asp-controller="TechniciansPage" asp-action="List" class="text-decoration-none">
+                                        <strong>Technicians</strong>
+                                        <div class="text-muted small">
+                                            See technician list and workloads.
+                                        </div>
+                                    </a>
+                                </li>
+                            </ul>
+                        </div>
+                        <div class="card-footer bg-light small text-muted">
+                            Use the navigation bar for additional pages.
+                        </div>
+                    </div>
+                </div>
+            }
+
+            @* TECHNICIAN *@
+            @if (isTechnician)
+            {
+                <div class="col-md-6">
+                    <div class="card h-100 shadow-sm">
+                        <div class="card-header bg-white">
+                            <h2 class="h6 mb-0">Technician Overview</h2>
+                            <div class="text-muted small">
+                                Focus on the work orders assigned to you.
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            <ul class="list-unstyled mb-0">
+                                <li class="mb-2">
+                                    <a asp-controller="WorkOrder" asp-action="MyTasks" class="text-decoration-none">
+                                        <strong>My Tasks</strong>
+                                        <div class="text-muted small">
+                                            See all work orders currently assigned to you.
+                                        </div>
+                                    </a>
+                                </li>
+                            </ul>
+                        </div>
+                        <div class="card-footer bg-light small text-muted">
+                            Open a work order to view details, history, and equipment/parts.
+                        </div>
+                    </div>
+                </div>
+            }
+
+            @* STANDARD USER *@
+            @if (isStandardUser)
+            {
+                <div class="col-md-6">
+                    <div class="card h-100 shadow-sm">
+                        <div class="card-header bg-white">
+                            <h2 class="h6 mb-0">My Maintenance Requests</h2>
+                            <div class="text-muted small">
+                                Create and track work orders for your assets.
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            <ul class="list-unstyled mb-0">
+                                <li class="mb-2">
+                                    <a asp-controller="WorkOrder" asp-action="Create" class="text-decoration-none">
+                                        <strong>Submit Work Order</strong>
+                                        <div class="text-muted small">
+                                            Create a new maintenance request for an issue.
+                                        </div>
+                                    </a>
+                                </li>
+                                <li class="mb-2">
+                                    <a asp-controller="Asset" asp-action="MyAssets" class="text-decoration-none">
+                                        <strong>My Assets</strong>
+                                        <div class="text-muted small">
+                                            View assets you are responsible for.
+                                        </div>
+                                    </a>
+                                </li>
+                                <li class="mb-2">
+                                    <a asp-controller="WorkOrder" asp-action="MyOrders" class="text-decoration-none">
+                                        <strong>My Orders</strong>
+                                        <div class="text-muted small">
+                                            Track the status of work orders you submitted.
+                                        </div>
+                                    </a>
+                                </li>
+                            </ul>
+                        </div>
+                        <div class="card-footer bg-light small text-muted">
+                            You will be notified when technicians update or complete your requests.
+                        </div>
+                    </div>
+                </div>
+            }
+
+            <!-- Generic info card shown to every logged-in user -->
+            <div class="col-md-6">
+                <div class="card h-100 border-0 bg-light">
+                    <div class="card-body">
+                        <h2 class="h6 mb-2">How this portal helps</h2>
+                        <ul class="small text-muted mb-0">
+                            <li>Centralized tracking of all maintenance work orders</li>
+                            <li>Clear responsibilities for technicians and managers</li>
+                            <li>History, attachments, and cost breakdown for each job</li>
+                            <li>Better visibility into asset health over time</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    }
+    else
+    {
+        <!-- Anonymous / not logged in -->
+        <div class="row g-3">
+            <div class="col-md-8">
+                <div class="card shadow-sm">
+                    <div class="card-header bg-white">
+                        <h2 class="h6 mb-0">About FM App</h2>
+                    </div>
+                    <div class="card-body">
+                        <p class="mb-2">
+                            FM App is a facility maintenance portal where users can submit work orders,
+                            technicians can manage their tasks, and managers can oversee all maintenance operations.
+                        </p>
+                        <p class="mb-0 text-muted small">
+                            Log in to start creating work orders or managing assigned tasks.
+                        </p>
+                    </div>
+                    <div class="card-footer bg-light d-flex justify-content-between align-items-center">
+                        <a asp-area="Identity"
+                           asp-page="/Account/Login"
+                           class="btn btn-primary btn-sm">
+                            Login
+                        </a>
+                        <a href="https://learn.microsoft.com/aspnet/core"
+                           class="small text-muted"
+                           target="_blank">
+                            Learn about building web apps with ASP.NET Core
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
 </div>

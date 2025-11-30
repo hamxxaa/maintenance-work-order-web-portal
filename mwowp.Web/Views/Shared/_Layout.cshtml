@@ -15,59 +15,79 @@
 </head>
 <body>
     <header>
-        <nav class="navbar navbar-expand-lg navbar-light bg-light">
-            <a class="navbar-brand" asp-area="" asp-controller="Home" asp-action="Index">FM App</a>
-            <div class="collapse navbar-collapse">
-                <ul class="navbar-nav mr-auto">
+        <nav class="navbar navbar-expand-lg navbar-light bg-light mb-3">
+            <div class="container-fluid">
+                <a class="navbar-brand fw-semibold" asp-area="" asp-controller="Home" asp-action="Index">
+                    FM App
+                </a>
 
-                    @if (SignInManager.IsSignedIn(User))
-                    {
-                        var currentUser = await UserManager.GetUserAsync(User);
-                        var roles = await UserManager.GetRolesAsync(currentUser);
+                <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mainNavbar"
+                        aria-controls="mainNavbar" aria-expanded="false" aria-label="Toggle navigation">
+                    <span class="navbar-toggler-icon"></span>
+                </button>
 
-                        if (roles.Contains("Manager"))
+                <div class="collapse navbar-collapse" id="mainNavbar">
+                    <ul class="navbar-nav me-auto mb-2 mb-lg-0">
+                        @if (SignInManager.IsSignedIn(User))
+                        {
+                            var currentUser = await UserManager.GetUserAsync(User);
+                            var roles = await UserManager.GetRolesAsync(currentUser);
+
+                            if (roles.Contains("Manager"))
+                            {
+                                <li class="nav-item">
+                                    <a class="nav-link" asp-controller="WorkOrder" asp-action="Index">All Work Orders</a>
+                                </li>
+                                <li class="nav-item">
+                                    <a class="nav-link" asp-controller="TechniciansPage" asp-action="List">Technicians</a>
+                                </li>
+                            }
+
+                            if (roles.Contains("Technician"))
+                            {
+                                <li class="nav-item">
+                                    <a class="nav-link" asp-controller="WorkOrder" asp-action="MyTasks">My Tasks</a>
+                                </li>
+                            }
+
+                            if (!roles.Contains("Manager") && !roles.Contains("Technician"))
+                            {
+                                <li class="nav-item">
+                                    <a class="nav-link" asp-controller="WorkOrder" asp-action="Create">Submit Work Order</a>
+                                </li>
+                                <li class="nav-item">
+                                    <a class="nav-link" asp-controller="Asset" asp-action="MyAssets">My Assets</a>
+                                </li>
+                                <li class="nav-item">
+                                    <a class="nav-link" asp-controller="WorkOrder" asp-action="MyOrders">My Orders</a>
+                                </li>
+                            }
+                        }
+                    </ul>
+
+                    <ul class="navbar-nav ms-auto">
+                        @if (SignInManager.IsSignedIn(User))
                         {
                             <li class="nav-item">
-                                <a class="nav-link" asp-controller="WorkOrder" asp-action="Index">All Work Orders</a>
-                            </li>
-                            <li class="nav-item">
-                                <a class="nav-link" asp-controller="TechniciansPage" asp-action="List">Technicians</a>
+                                <form method="post"
+                                      asp-area="Identity"
+                                      asp-page="/Account/Logout"
+                                      class="d-inline">
+                                    <button type="submit" class="btn btn-link nav-link px-2">Logout</button>
+                                </form>
                             </li>
                         }
-
-                        if (roles.Contains("Technician"))
+                        else
                         {
                             <li class="nav-item">
-                                <a class="nav-link" asp-controller="WorkOrder" asp-action="MyTasks">My Tasks</a>
+                                <a class="nav-link" asp-area="Identity" asp-page="/Account/Login">Login</a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link" asp-area="Identity" asp-page="/Account/Register">Register</a>
                             </li>
                         }
-
-                        if (!roles.Contains("Manager") && !roles.Contains("Technician"))
-                        {
-                            <li class="nav-item">
-                                <a class="nav-link" asp-controller="WorkOrder" asp-action="Create">Submit Work Order</a>
-                            </li>
-                            <li class="nav-item">
-                                <a class="nav-link" asp-controller="Asset" asp-action="MyAssets">My Assets</a>
-                            </li>
-                            <li class="nav-item">
-                                <a class="nav-link" asp-controller="WorkOrder" asp-action="MyOrders">My Orders</a>
-                            </li>
-                        }
-
-                        <li class="nav-item">
-                            <form method="post" asp-area="Identity" asp-page="/Account/Logout">
-                                <button type="submit" class="btn btn-link nav-link">Logout</button>
-                            </form>
-                        </li>
-                    }
-                    else
-                    {
-                        <li class="nav-item">
-                            <a class="nav-link" asp-area="Identity" asp-page="/Account/Login">Login</a>
-                        </li>
-                    }
-                </ul>
+                    </ul>
+                </div>
             </div>
         </nav>
     </header>
@@ -116,11 +136,9 @@
                         showAlert("alert-info", `<strong>Bildirim:</strong> ${message}`);
                     });
 
-                    // Tamamlanma bildirimi (tıklanınca inspection sayfasına gider)
                     connection.on("WorkOrderCompleted", (p) => {
                         const url = `/WorkOrder/Inspection/${p.id}`;
                         const message = `İş emri tamamlandı (#${p.id}): "${p.title}" - Varlık: ${p.assetName ?? "-"} - Tamamlayan: ${p.completedBy} - Öncelik: ${p.priority}`;
-                        // Alert'i tıklanabilir hale getir
                         const html = `<a href="${url}" class="stretched-link text-decoration-none text-reset">
                             <strong>Denetim Gerekli:</strong> ${message}
                             <div class="small mt-1">Denetlemek için tıkla</div>
@@ -141,7 +159,6 @@
                         .withAutomaticReconnect()
                         .build();
 
-                    // Mevcut atama bildirimi
                     connection.on("WorkOrderAssigned", (p) => {
                         const message = `Size yeni iş emri atandı (#${p.id}): "${p.title}" - Varlık: ${p.assetName ?? "-"} - Öncelik: ${p.priority}`;
                         const alert = document.createElement("div");
@@ -155,7 +172,6 @@
                         setTimeout(() => { alert.classList.remove("show"); alert.remove(); }, 10000);
                     });
 
-                    // Denetim tamamlandı bildirimi (detaya gitme linki)
                     connection.on("WorkOrderInspected", (p) => {
                         const url = `/WorkOrder/ViewTask/${p.id}`;
                         const html = `<a href="${url}" class="stretched-link text-decoration-none text-reset">

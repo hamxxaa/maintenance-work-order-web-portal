@@ -48,7 +48,7 @@ namespace mwowp.Web.Controllers
         {
             ModelState.Remove("OwnerUserId");
             ModelState.Remove("OwnerUser");
-            ModelState.Remove("Status"); // Status de formdan gelmediği için hata verebilir
+            ModelState.Remove("Status"); 
             ModelState.Remove("CreatedAt");
 
             if (ModelState.IsValid)
@@ -57,7 +57,7 @@ namespace mwowp.Web.Controllers
                 asset.OwnerUserId = user.Id;
                 asset.OwnerUser = user;
 
-                asset.Status = AssetStatus.OnRepair; // veya default status
+                asset.Status = AssetStatus.New; 
                 asset.CreatedAt = DateTime.UtcNow;
 
                 _context.Assets.Add(asset);

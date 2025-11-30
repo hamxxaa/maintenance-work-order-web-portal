@@ -1,62 +1,108 @@
 ﻿@using mwowp.Web.Models
 @model mwowp.Web.Models.WorkOrder
 
-<h2>İş Emri Düzenle</h2>
+@{
+    ViewData["Title"] = "Edit Work Order Assignment";
+}
 
-<form asp-controller="WorkOrder" asp-action="EditOrder" method="post">
-    @Html.AntiForgeryToken()
-    <input type="hidden" asp-for="Id" />
-
+<div class="container py-3">
+    <!-- Page header -->
     <div class="mb-3">
-        <label class="form-label">Asset</label>
-        <input class="form-control" value="@Model.Asset?.Name" disabled />
+        <h1 class="h4 mb-1">Edit Work Order Assignment</h1>
+        <p class="text-muted small mb-0">
+            Review the work order details and assign it to a technician.
+        </p>
     </div>
 
-    <div class="mb-3">
-        <label asp-for="Title" class="form-label"></label>
-        <input asp-for="Title" class="form-control" disabled />
-    </div>
+    <div class="card shadow-sm">
+        <div class="card-body">
+            <form asp-controller="WorkOrder" asp-action="EditOrder" method="post" novalidate>
+                @Html.AntiForgeryToken()
+                <input type="hidden" asp-for="Id" />
 
-    <div class="mb-3">
-        <label asp-for="Description" class="form-label"></label>
-        <textarea asp-for="Description" class="form-control" rows="4" disabled></textarea>
-    </div>
+                <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
 
-    <div class="mb-3">
-        <label asp-for="Priority" class="form-label"></label>
-        <input class="form-control" value="@Model.Priority" disabled />
-    </div>
+                <div class="row">
+                    <div class="col-md-6">
+                        <!-- Asset -->
+                        <div class="mb-3">
+                            <label class="form-label">Asset</label>
+                            <input class="form-control" value="@Model.Asset?.Name" disabled />
+                        </div>
 
-    <div class="mb-3">
-        <label class="form-label">Durum</label>
-        <input class="form-control" value="@Model.Status" disabled />
-    </div>
+                        <!-- Title -->
+                        <div class="mb-3">
+                            <label asp-for="Title" class="form-label"></label>
+                            <input asp-for="Title" class="form-control" disabled />
+                        </div>
 
-    <div class="mb-3">
-        <label class="form-label">Oluşturan</label>
-        <input class="form-control" value="@Model.CreatedByUser?.FullName" disabled />
-    </div>
+                        <!-- Description -->
+                        <div class="mb-3">
+                            <label asp-for="Description" class="form-label"></label>
+                            <textarea asp-for="Description"
+                                      class="form-control"
+                                      rows="4"
+                                      disabled></textarea>
+                        </div>
+                    </div>
 
-    <div class="mb-3">
-        <label asp-for="AssignedToUserId" class="form-label">Atanan Kişi</label>
-        <select asp-for="AssignedToUserId" class="form-select">
-            <option value="">(Seçilmedi)</option>
-            @if (ViewBag.Assignees is IEnumerable<ApplicationUser> users)
-            {
-                foreach (var u in users)
-                {
-                    <option value="@u.Id" selected="@(Model.AssignedToUserId == u.Id ? "selected" : null)">@u.FullName</option>
-                }
-            }
-        </select>
-        <span asp-validation-for="AssignedToUserId" class="text-danger"></span>
-    </div>
+                    <div class="col-md-6">
+                        <!-- Priority -->
+                        <div class="mb-3">
+                            <label asp-for="Priority" class="form-label"></label>
+                            <input class="form-control" value="@Model.Priority" disabled />
+                        </div>
 
-    <div class="d-flex gap-2">
-        <button type="submit" class="btn btn-primary">Kaydet</button>
-        <a asp-controller="WorkOrder" asp-action="Index" class="btn btn-secondary">İptal</a>
+                        <!-- Status -->
+                        <div class="mb-3">
+                            <label class="form-label">Durum</label>
+                            <input class="form-control" value="@Model.Status" disabled />
+                        </div>
+
+                        <!-- Created By -->
+                        <div class="mb-3">
+                            <label class="form-label">Oluşturan</label>
+                            <input class="form-control" value="@Model.CreatedByUser?.FullName" disabled />
+                        </div>
+
+                        <!-- Assigned technician -->
+                        <div class="mb-3">
+                            <label asp-for="AssignedToUserId" class="form-label">Atanan Kişi</label>
+                            <select asp-for="AssignedToUserId" class="form-select">
+                                <option value="">(Seçilmedi)</option>
+                                @if (ViewBag.Assignees is IEnumerable<ApplicationUser> users)
+                                {
+                                    foreach (var u in users)
+                                    {
+                                        <option value="@u.Id" selected="@(Model.AssignedToUserId == u.Id ? "selected" : null)">
+                                            @u.FullName
+                                        </option>
+                                    }
+                                }
+                            </select>
+                            <span asp-validation-for="AssignedToUserId" class="text-danger small"></span>
+                            <small class="form-text text-muted">
+                                Choose the technician who will be responsible for this work order.
+                            </small>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="d-flex justify-content-between align-items-center mt-3">
+                    <a asp-controller="WorkOrder" asp-action="Index" class="btn btn-outline-secondary btn-sm">
+                        İptal
+                    </a>
+                    <button type="submit" class="btn btn-primary btn-sm">
+                        Kaydet
+                    </button>
+                </div>
+            </form>
+        </div>
+        <div class="card-footer bg-light small text-muted">
+            Assignment changes take effect immediately. Technicians will see new tasks under their “My Tasks” view.
+        </div>
     </div>
-</form>
+</div>
 
 @section Scripts {
     <partial name="_ValidationScriptsPartial" />

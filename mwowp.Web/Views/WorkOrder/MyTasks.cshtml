@@ -1,37 +1,76 @@
 ﻿@model IEnumerable<mwowp.Web.Models.WorkOrder>
 
-<h2>My Assigned Tasks</h2>
+@{
+    ViewData["Title"] = "My Assigned Tasks";
+}
 
-<table class="table">
-    <thead>
-        <tr>
-            <th>Asset</th>
-            <th>Title</th>
-            <th>Status</th>
-            <th>Priority</th>
-            <th>Created At</th>
-        </tr>
-    </thead>
-    <tbody>
-        @foreach (var wo in Model)
-        {
-            <tr>
-                <td>@wo.Asset.Name</td>
-                <td>@wo.Title</td>
-                <td>@wo.Status</td>
-                <td>@wo.Priority</td>
-                <td>@wo.CreatedAt.ToShortDateString()</td>
-                <td>
-                    <a asp-controller="WorkOrder"
-                       asp-action="ViewTask"
-                       asp-route-id="@wo.Id"
-                       class="btn btn-sm btn-primary"
-                       target="_blank"
-                       rel="noopener">
-                        View
-                    </a>
-                </td>
-            </tr>
-        }
-    </tbody>
-</table>
+<div class="container py-3">
+    <!-- Page header -->
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <div>
+            <h1 class="h4 mb-1">My Assigned Tasks</h1>
+            <p class="text-muted small mb-0">
+                Work orders currently assigned to you. Open a task to see full details, history, and complete the job.
+            </p>
+        </div>
+    </div>
+
+    @if (Model == null || !Model.Any())
+    {
+        <div class="card border-0 bg-light">
+            <div class="card-body text-center py-4">
+                <h2 class="h6 mb-2">No tasks assigned</h2>
+                <p class="text-muted small mb-0">
+                    You don’t have any work orders assigned to you at the moment.
+                    New tasks will appear here when a manager assigns them.
+                </p>
+            </div>
+        </div>
+    }
+    else
+    {
+        <div class="card shadow-sm">
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0 align-middle">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Asset</th>
+                                <th>Title</th>
+                                <th>Status</th>
+                                <th>Priority</th>
+                                <th>Created At</th>
+                                <th style="width: 120px;">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var wo in Model)
+                            {
+                                <tr>
+                                    <td>@wo.Asset?.Name</td>
+                                    <td>@wo.Title</td>
+                                    <td>@wo.Status</td>
+                                    <td>@wo.Priority</td>
+                                    <td>@wo.CreatedAt.ToShortDateString()</td>
+                                    <td>
+                                        <a asp-controller="WorkOrder"
+                                           asp-action="ViewTask"
+                                           asp-route-id="@wo.Id"
+                                           class="btn btn-outline-primary btn-sm"
+                                           target="_blank"
+                                           rel="noopener">
+                                            View
+                                        </a>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="card-footer bg-light small text-muted">
+                Use the “View” action to open a work order, update equipment and spare parts, and complete the job with a repair report.
+            </div>
+        </div>
+    }
+</div>
